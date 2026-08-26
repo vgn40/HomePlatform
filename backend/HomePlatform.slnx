@@ -1,0 +1,18 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/HomePlatform.Api/HomePlatform.Api.csproj" />
+    <Project Path="src/HomePlatform.Application/HomePlatform.Application.csproj" />
+    <Project Path="src/HomePlatform.Domain/HomePlatform.Domain.csproj" />
+    <Project Path="src/HomePlatform.Infrastructure/HomePlatform.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HomePlatform.Application.Tests/HomePlatform.Application.Tests.csproj" />
+    <Project Path="tests/HomePlatform.Domain.Tests/HomePlatform.Domain.Tests.csproj" />
+    <Project Path="tests/HomePlatform.IntegrationTests/HomePlatform.IntegrationTests.csproj" />
+  </Folder>
+</Solution>
