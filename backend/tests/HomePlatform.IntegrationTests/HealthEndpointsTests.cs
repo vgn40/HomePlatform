@@ -9,9 +9,9 @@ namespace HomePlatform.IntegrationTests;
 public sealed class HealthEndpointsTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6-alpine")
-        .WithDatabase("vores")
-        .WithUsername("vores")
-        .WithPassword("vores")
+        .WithDatabase("homeplatform")
+        .WithUsername("homeplatform")
+        .WithPassword("homeplatform-dev")
         .Build();
 
     private WebApplicationFactory<Program>? _factory;
@@ -49,7 +49,7 @@ public sealed class HealthEndpointsTests : IAsyncLifetime
     public async Task Ready_returns_service_unavailable_when_postgresql_is_unavailable()
     {
         const string unavailableConnection =
-            "Host=127.0.0.1;Port=1;Database=vores;Username=vores;Password=vores;Timeout=1;Command Timeout=1";
+            "Host=127.0.0.1;Port=1;Database=homeplatform;Username=homeplatform;Password=homeplatform-dev;Timeout=1;Command Timeout=1";
 
         await using var factory = new HomePlatformApiFactory(unavailableConnection);
         using var client = factory.CreateClient();
