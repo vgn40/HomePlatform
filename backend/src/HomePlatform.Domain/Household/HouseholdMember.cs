@@ -2,21 +2,34 @@ namespace HomePlatform.Domain.Household;
 
 public class HouseholdMember
 {
-    public Guid UserId { get; }
+    public Guid MembershipId { get; }
+    public Guid? AccountId { get; private set; }
     public HouseholdRole Role { get; }
-    public HouseholdMember(Guid userId, HouseholdRole role)
+    internal HouseholdMember(HouseholdRole role, Guid? accountId = null)
     {
-        if (userId == Guid.Empty)
-        {
-            throw new ArgumentException("User ID cannot be empty.", nameof(userId));
-        }
-
         if (!Enum.IsDefined(role))
         {
-            throw new ArgumentException("Invalid role specified.", nameof(role));
+            throw new ArgumentException(
+                "Invalid role specified.",
+                nameof(role));
         }
 
-        UserId = userId;
+        if (accountId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Account ID cannot be empty.",
+                nameof(accountId));
+        }
+        
+        if (role == HouseholdRole.Owner && accountId is null)
+        {
+            throw new ArgumentException(
+                "An owner must be linked to an account.",
+                nameof(accountId));
+        }
+        
+        MembershipId = Guid.NewGuid();
+        AccountId = accountId;
         Role = role;
     }
 }

@@ -4,92 +4,125 @@ namespace HomePlatform.Domain.Tests.Household;
 
 public class HouseholdMembersTest
 {
-    [Fact]
-    public void AddMember_adds_member()
+    [Theory]
+    [InlineData(HouseholdRole.Member)]
+    [InlineData(HouseholdRole.Guest)]
+    public void AddMember_with_account_succeeds_and_creates_expected_membership(
+        HouseholdRole role)
     {
-        var household = new Domain.Household.Household("Mit hjem");
-        var member = new HouseholdMember(
-            Guid.NewGuid(),
-            HouseholdRole.Parent);
+        var household = CreateHousehold();
+        var accountId = Guid.NewGuid();
 
-        var result = household.AddMember(member);
+        var result = household.AddMember(role, accountId);
 
         Assert.True(result.IsSuccess);
-        Assert.Single(household.Members);
-        Assert.Contains(member, household.Members);
+        Assert.Null(result.ErrorMessage);
+
+        var member = Assert.Single(
+            household.Members,
+            membership => membership.AccountId == accountId);
+        Assert.NotEqual(Guid.Empty, member.MembershipId);
+        Assert.Equal(accountId, member.AccountId);
+        Assert.Equal(role, member.Role);
     }
 
     [Fact]
-    public void AddMember_fails_when_user_is_already_member()
+    public void AddMember_without_account_succeeds()
     {
-        var household = new Domain.Household.Household("Mit hjem");
-        var userId = Guid.NewGuid();
+        var household = CreateHousehold();
 
-        var firstMember = new HouseholdMember(
-            userId,
-            HouseholdRole.Parent);
+        var result = household.AddMember(HouseholdRole.Member);
 
-        var duplicateMember = new HouseholdMember(
-            userId,
-            HouseholdRole.Guest);
+        Assert.True(result.IsSuccess);
 
-        household.AddMember(firstMember);
+        var member = Assert.Single(
+            household.Members,
+            membership => membership.AccountId is null);
+        Assert.NotEqual(Guid.Empty, member.MembershipId);
+        Assert.Null(member.AccountId);
+        Assert.Equal(HouseholdRole.Member, member.Role);
+    }
 
-        var result = household.AddMember(duplicateMember);
+    [Fact]
+    public void AddMember_allows_multiple_memberships_without_accounts()
+    {
+        var household = CreateHousehold();
 
-        Assert.False(result.IsSuccess);
+        var firstResult = household.AddMember(HouseholdRole.Member);
+        var secondResult = household.AddMember(HouseholdRole.Guest);
+
+        Assert.True(firstResult.IsSuccess);
+        Assert.True(secondResult.IsSuccess);
         Assert.Equal(
-            "User is already a member of the household.",
-            result.ErrorMessage);
-
-        Assert.Single(household.Members);
+            2,
+            household.Members.Count(membership => membership.AccountId is null));
     }
 
     [Fact]
-    public void AddMember_throws_when_member_is_null()
+    public void AddMember_fails_when_account_is_already_linked()
     {
-        var household = new Domain.Household.Household("Mit hjem");
+        var household = CreateHousehold();
+        var accountId = Guid.NewGuid();
 
-        Assert.Throws<ArgumentNullException>(
-            () => household.AddMember(null!));
+        var firstResult = household.AddMember(
+            HouseholdRole.Member,
+            accountId);
+        var duplicateResult = household.AddMember(
+            HouseholdRole.Guest,
+            accountId);
+
+        Assert.True(firstResult.IsSuccess);
+        Assert.False(duplicateResult.IsSuccess);
+        Assert.Equal(
+            "Account is already linked to a membership in this household.",
+            duplicateResult.ErrorMessage);
+        Assert.Equal(2, household.Members.Count);
+        Assert.Single(
+            household.Members,
+            membership => membership.AccountId == accountId);
     }
 
     [Fact]
     public void AddMember_updates_updated_at()
     {
-        var household = new Domain.Household.Household("Mit hjem");
+        var household = CreateHousehold();
         var originalUpdatedAt = household.UpdatedAt;
 
         Thread.Sleep(1);
 
-        var member = new HouseholdMember(
-            Guid.NewGuid(),
-            HouseholdRole.Parent);
+        var result = household.AddMember(
+            HouseholdRole.Member,
+            Guid.NewGuid());
 
-        household.AddMember(member);
-
+        Assert.True(result.IsSuccess);
         Assert.True(household.UpdatedAt > originalUpdatedAt);
     }
 
     [Fact]
-    public void HouseholdMember_throws_when_user_id_is_empty()
+    public void Initial_owner_always_has_an_account()
     {
-        Assert.Throws<ArgumentException>(() =>
-            new HouseholdMember(
-                Guid.Empty,
-                HouseholdRole.Parent));
+        var household = CreateHousehold();
+
+        var owner = Assert.Single(
+            household.Members,
+            membership => membership.Role == HouseholdRole.Owner);
+        Assert.NotNull(owner.AccountId);
     }
 
     [Fact]
-    public void HouseholdMember_stores_user_id_and_role()
+    public void AddMember_throws_when_owner_has_no_account()
     {
-        var userId = Guid.NewGuid();
+        var household = CreateHousehold();
 
-        var member = new HouseholdMember(
-            userId,
-            HouseholdRole.Child);
+        Assert.Throws<ArgumentException>(() =>
+            household.AddMember(HouseholdRole.Owner));
+        Assert.Single(household.Members);
+    }
 
-        Assert.Equal(userId, member.UserId);
-        Assert.Equal(HouseholdRole.Child, member.Role);
+    private static Domain.Household.Household CreateHousehold()
+    {
+        return new Domain.Household.Household(
+            "Mit hjem",
+            Guid.NewGuid());
     }
 }
