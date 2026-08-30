@@ -1,7 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests;
@@ -14,7 +12,7 @@ public sealed class HealthEndpointsTests : IAsyncLifetime
         .WithPassword("homeplatform-dev")
         .Build();
 
-    private WebApplicationFactory<Program>? _factory;
+    private HomePlatformApiFactory? _factory;
     private HttpClient? _client;
 
     public async Task InitializeAsync()
@@ -76,13 +74,4 @@ public sealed class HealthEndpointsTests : IAsyncLifetime
     private HttpClient Client => _client ?? throw new InvalidOperationException("Test fixture is not initialized.");
 
     private sealed record HealthResponse(string Status);
-}
-
-file sealed class HomePlatformApiFactory(string connectionString) : WebApplicationFactory<Program>
-{
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-        builder.UseSetting("ConnectionStrings:Database", connectionString);
-    }
 }
