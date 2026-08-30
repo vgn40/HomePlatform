@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/HomePlatform.Api/HomePlatform.Api.csproj" />
+    <ProjectReference Include="../../src/HomePlatform.Domain/HomePlatform.Domain.csproj" />
+    <ProjectReference Include="../../src/HomePlatform.Infrastructure/HomePlatform.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

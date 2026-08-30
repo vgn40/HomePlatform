@@ -2,6 +2,10 @@ namespace HomePlatform.Domain.Household;
 
 public class HouseholdMember
 {
+    private HouseholdMember()
+{
+}
+
     public Guid MembershipId { get; }
     public Guid? AccountId { get; private set; }
     public HouseholdRole Role { get; }
@@ -27,7 +31,7 @@ public class HouseholdMember
                 "An owner must be linked to an account.",
                 nameof(accountId));
         }
-        
+
         MembershipId = Guid.NewGuid();
         AccountId = accountId;
         Role = role;

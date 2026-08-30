@@ -4,14 +4,19 @@ using HomePlatform.Domain.Common;
 
 public class Household
 {
+    private readonly List<HouseholdMember> _members = new();
+
     public Guid Id { get; }
     public string Name { get; private set; }
     public DateTime CreatedAt { get; }
     public DateTime UpdatedAt { get; private set; }
 
-    private readonly List<HouseholdMember> _members = new();
-
     public IReadOnlyCollection<HouseholdMember> Members => _members;
+
+    private Household()
+    {
+        Name = null!;
+    }
 
     public Household(string name, Guid ownerAccountId)
     {
@@ -48,7 +53,7 @@ public class Household
         Guid? accountId = null)
     {
         if (accountId is Guid id &&
-            _members.Any(m => m.AccountId == id))
+            _members.Any(member => member.AccountId == id))
         {
             return Result.Failure(
                 "Account is already linked to a membership in this household.");
