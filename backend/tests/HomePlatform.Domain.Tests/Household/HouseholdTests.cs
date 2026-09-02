@@ -121,4 +121,14 @@ public class HouseholdTests
             typeof(IReadOnlyCollection<HouseholdMember>),
             membersProperty.PropertyType);
     }
+
+    [Fact]
+    public void Members_cannot_be_downcast_to_the_mutable_backing_list()
+    {
+        var household = new Domain.Household.Household(
+            "Mit hjem",
+            Guid.NewGuid());
+
+        Assert.False(household.Members is List<HouseholdMember>);
+    }
 }

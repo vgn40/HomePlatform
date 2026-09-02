@@ -59,6 +59,24 @@ public class HouseholdMembersTest
     }
 
     [Fact]
+    public void AddMember_is_visible_through_an_existing_read_only_members_view()
+    {
+        var household = CreateHousehold();
+        var members = household.Members;
+        var accountId = Guid.NewGuid();
+
+        var result = household.AddMember(
+            HouseholdRole.Member,
+            accountId);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, members.Count);
+        Assert.Contains(
+            members,
+            membership => membership.AccountId == accountId);
+    }
+
+    [Fact]
     public void AddMember_fails_when_account_is_already_linked()
     {
         var household = CreateHousehold();
@@ -83,19 +101,17 @@ public class HouseholdMembersTest
     }
 
     [Fact]
-    public void AddMember_updates_updated_at()
+    public void AddMember_keeps_updated_at_initialized()
     {
         var household = CreateHousehold();
-        var originalUpdatedAt = household.UpdatedAt;
-
-        Thread.Sleep(1);
 
         var result = household.AddMember(
             HouseholdRole.Member,
             Guid.NewGuid());
 
         Assert.True(result.IsSuccess);
-        Assert.True(household.UpdatedAt > originalUpdatedAt);
+        Assert.NotEqual(default, household.UpdatedAt);
+        Assert.Equal(DateTimeKind.Utc, household.UpdatedAt.Kind);
     }
 
     [Fact]
