@@ -4,6 +4,8 @@ using HomePlatform.Domain.Common;
 
 public class Household
 {
+    public const int MaxNameLength = 100;
+
     private readonly List<HouseholdMember> _members = new();
 
     public Guid Id { get; }
@@ -11,7 +13,7 @@ public class Household
     public DateTime CreatedAt { get; }
     public DateTime UpdatedAt { get; private set; }
 
-    public IReadOnlyCollection<HouseholdMember> Members => _members;
+    public IReadOnlyCollection<HouseholdMember> Members => _members.AsReadOnly();
 
     private Household()
     {
@@ -27,6 +29,15 @@ public class Household
                 nameof(name));
         }
 
+        var normalizedName = name.Trim();
+
+        if (normalizedName.Length > MaxNameLength)
+        {
+            throw new ArgumentException(
+                $"Household name cannot exceed {MaxNameLength} characters.",
+                nameof(name));
+        }
+
         if (ownerAccountId == Guid.Empty)
         {
             throw new ArgumentException(
@@ -37,7 +48,7 @@ public class Household
         var now = DateTime.UtcNow;
 
         Id = Guid.NewGuid();
-        Name = name.Trim();
+        Name = normalizedName;
         CreatedAt = now;
         UpdatedAt = now;
 

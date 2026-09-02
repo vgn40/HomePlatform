@@ -15,7 +15,8 @@ public sealed class HouseholdConfiguration
             .ValueGeneratedNever();
 
         builder.Property(household => household.Name)
-            .IsRequired();
+            .IsRequired()
+            .HasMaxLength(Household.MaxNameLength);
 
         builder.Property(household => household.CreatedAt)
             .IsRequired();

@@ -165,6 +165,29 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Create_household_returns_400_for_name_exceeding_max_length_and_writes_nothing()
+    {
+        await ResetDatabaseAsync();
+
+        var name = new string('a', Household.MaxNameLength + 1);
+        using var request = CreateRequest(
+            Guid.NewGuid().ToString(),
+            new { name });
+
+        var response = await Client.SendAsync(request);
+        var problem = await response.Content
+            .ReadFromJsonAsync<ProblemDetails>();
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.NotNull(problem);
+        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
+        Assert.Equal("Invalid household", problem.Title);
+        await AssertRowCountsAsync(
+            expectedHouseholds: 0,
+            expectedMembers: 0);
+    }
+
+    [Fact]
     public async Task Create_household_route_is_not_exposed_in_production()
     {
         await ResetDatabaseAsync();

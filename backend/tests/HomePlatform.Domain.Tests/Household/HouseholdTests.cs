@@ -32,6 +32,49 @@ public class HouseholdTests
     }
 
     [Fact]
+    public void Constructor_accepts_name_at_max_length()
+    {
+        var name = new string(
+            'a',
+            Domain.Household.Household.MaxNameLength);
+
+        var household = new Domain.Household.Household(
+            name,
+            Guid.NewGuid());
+
+        Assert.Equal(name, household.Name);
+    }
+
+    [Fact]
+    public void Constructor_throws_when_name_exceeds_max_length()
+    {
+        var name = new string(
+            'a',
+            Domain.Household.Household.MaxNameLength + 1);
+
+        Assert.Throws<ArgumentException>(() =>
+            new Domain.Household.Household(name, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void Constructor_accepts_padded_name_at_max_length_after_trimming()
+    {
+        var normalizedName = new string(
+            'a',
+            Domain.Household.Household.MaxNameLength);
+        var name = $"   {normalizedName}   ";
+
+        var household = new Domain.Household.Household(
+            name,
+            Guid.NewGuid());
+
+        Assert.Equal(
+            Domain.Household.Household.MaxNameLength,
+            household.Name.Length);
+        Assert.Equal(normalizedName, household.Name);
+    }
+
+    [Fact]
     public void Constructor_generates_id()
     {
         var household = new Domain.Household.Household(
