@@ -1,6 +1,8 @@
 using HomePlatform.Domain.Household;
 using HomePlatform.Infrastructure.Persistence;
+using HomePlatform.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -29,7 +31,7 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Household_can_be_saved_cleared_and_reloaded_with_members()
+    public async Task Repository_add_persists_and_reloads_household_with_owner()
     {
         var ownerAccountId = Guid.NewGuid();
         var household = new Household("Test household", ownerAccountId);
@@ -40,13 +42,14 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         var expectedOwnerAccountId = owner.AccountId;
         var expectedOwnerRole = owner.Role;
 
-        await using var context = CreateContext();
-        context.Set<Household>().Add(household);
-        await context.SaveChangesAsync();
+        await using (var writeContext = CreateContext())
+        {
+            var repository = new HouseholdRepository(writeContext);
+            await repository.AddAsync(household);
+        }
 
-        context.ChangeTracker.Clear();
-
-        var reloaded = await context.Set<Household>()
+        await using var verificationContext = CreateContext();
+        var reloaded = await verificationContext.Set<Household>()
             .Include(candidate => candidate.Members)
             .SingleAsync(candidate => candidate.Id == expectedHouseholdId);
 
@@ -58,6 +61,87 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         Assert.Equal(expectedOwnerAccountId, reloadedOwner.AccountId);
         Assert.Equal(expectedOwnerRole, reloadedOwner.Role);
         Assert.Equal(HouseholdRole.Owner, reloadedOwner.Role);
+    }
+
+    [Fact]
+    public async Task Repository_add_with_already_cancelled_token_writes_zero_rows()
+    {
+        var household = new Household("Cancelled household", Guid.NewGuid());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await using (var writeContext = CreateContext())
+        {
+            var repository = new HouseholdRepository(writeContext);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => repository.AddAsync(household, cancellation.Token));
+        }
+
+        await AssertAggregateWasNotPersisted(household.Id);
+    }
+
+    [Fact]
+    public async Task Repository_add_invokes_save_changes_exactly_once()
+    {
+        var interceptor = new SaveChangesInvocationInterceptor();
+        var household = new Household("Single save household", Guid.NewGuid());
+
+        await using var context = CreateContext(interceptor);
+        var repository = new HouseholdRepository(context);
+
+        await repository.AddAsync(household);
+
+        Assert.Equal(1, interceptor.AsyncInvocationCount);
+    }
+
+    [Fact]
+    public async Task Repository_add_rolls_back_household_when_owner_insert_fails()
+    {
+        var household = new Household("Rollback household", Guid.NewGuid());
+
+        await using (var setupContext = CreateContext())
+        {
+            await setupContext.Database.ExecuteSqlRawAsync(
+                """
+                CREATE FUNCTION fail_household_member_insert()
+                RETURNS trigger
+                LANGUAGE plpgsql
+                AS $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM "Household"
+                        WHERE "Id" = NEW."HouseholdId"
+                    ) THEN
+                        RAISE EXCEPTION 'household parent was not inserted first';
+                    END IF;
+
+                    RAISE EXCEPTION 'forced household member insert failure';
+                END;
+                $$;
+
+                CREATE TRIGGER fail_household_member_insert
+                BEFORE INSERT ON "HouseholdMember"
+                FOR EACH ROW
+                EXECUTE FUNCTION fail_household_member_insert();
+                """);
+        }
+
+        await using (var writeContext = CreateContext())
+        {
+            var repository = new HouseholdRepository(writeContext);
+            var exception = await Assert.ThrowsAsync<DbUpdateException>(
+                () => repository.AddAsync(household));
+
+            var postgresException = Assert.IsType<PostgresException>(exception.InnerException);
+            Assert.Equal(PostgresErrorCodes.RaiseException, postgresException.SqlState);
+            Assert.Equal(
+                "forced household member insert failure",
+                postgresException.MessageText);
+        }
+
+        await AssertAggregateWasNotPersisted(household.Id);
     }
 
     [Fact]
@@ -114,10 +198,30 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         await _postgres.DisposeAsync();
     }
 
-    private HomePlatformDbContext CreateContext()
+    private HomePlatformDbContext CreateContext(
+        params IInterceptor[] interceptors)
     {
-        return new HomePlatformDbContext(
-            _options ?? throw new InvalidOperationException("Test fixture is not initialized."));
+        var options = _options
+            ?? throw new InvalidOperationException("Test fixture is not initialized.");
+
+        if (interceptors.Length > 0)
+        {
+            options = new DbContextOptionsBuilder<HomePlatformDbContext>(options)
+                .AddInterceptors(interceptors)
+                .Options;
+        }
+
+        return new HomePlatformDbContext(options);
+    }
+
+    private async Task AssertAggregateWasNotPersisted(Guid householdId)
+    {
+        await using var verificationContext = CreateContext();
+
+        Assert.False(await verificationContext.Set<Household>()
+            .AnyAsync(candidate => candidate.Id == householdId));
+        Assert.False(await verificationContext.Set<HouseholdMember>()
+            .AnyAsync(member => EF.Property<Guid>(member, "HouseholdId") == householdId));
     }
 
     private static Task<Household> LoadHousehold(
@@ -127,5 +231,22 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         return context.Set<Household>()
             .Include(candidate => candidate.Members)
             .SingleAsync(candidate => candidate.Id == householdId);
+    }
+
+    private sealed class SaveChangesInvocationInterceptor : SaveChangesInterceptor
+    {
+        public int AsyncInvocationCount { get; private set; }
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData,
+            InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            AsyncInvocationCount++;
+            return base.SavingChangesAsync(
+                eventData,
+                result,
+                cancellationToken);
+        }
     }
 }

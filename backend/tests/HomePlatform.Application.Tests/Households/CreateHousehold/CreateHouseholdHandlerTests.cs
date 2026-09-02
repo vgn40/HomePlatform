@@ -23,11 +23,13 @@ public sealed class CreateHouseholdHandlerTests
 
         var household = Assert.Single(repository.AddedHouseholds);
         var owner = Assert.Single(household.Members);
+        Assert.Equal(CreateHouseholdOutcome.Success, result.Outcome);
         Assert.Equal("Mit hjem", household.Name);
         Assert.Equal(accountId, owner.AccountId);
         Assert.Equal(HouseholdRole.Owner, owner.Role);
         Assert.Equal(household.Id, result.HouseholdId);
         Assert.Equal(household.Name, result.Name);
+        Assert.Null(result.ErrorMessage);
         Assert.Equal(cancellationTokenSource.Token, repository.CancellationToken);
     }
 
@@ -47,29 +49,39 @@ public sealed class CreateHouseholdHandlerTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public async Task Handle_with_invalid_name_throws_without_repository_write(
+    public async Task Handle_with_invalid_name_returns_invalid_without_repository_write(
         string? name)
     {
         var repository = new RecordingHouseholdRepository();
         var handler = CreateHandler(repository);
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            handler.Handle(new CreateHouseholdCommand(name!)));
+        var result = await handler.Handle(
+            new CreateHouseholdCommand(name!));
 
+        Assert.Equal(CreateHouseholdOutcome.Invalid, result.Outcome);
+        Assert.Equal(
+            "Household name cannot be empty. (Parameter 'name')",
+            result.ErrorMessage);
+        Assert.Null(result.HouseholdId);
+        Assert.Null(result.Name);
         Assert.Empty(repository.AddedHouseholds);
     }
 
     [Fact]
-    public async Task Handle_with_empty_current_account_throws_without_repository_write()
+    public async Task Handle_with_unauthenticated_current_account_returns_unauthenticated_without_repository_write()
     {
         var repository = new RecordingHouseholdRepository();
         var handler = new CreateHouseholdHandler(
             repository,
-            new FakeCurrentAccount(Guid.Empty));
+            new UnauthenticatedCurrentAccount());
 
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            handler.Handle(new CreateHouseholdCommand("Mit hjem")));
+        var result = await handler.Handle(
+            new CreateHouseholdCommand("Mit hjem"));
 
+        Assert.Equal(CreateHouseholdOutcome.Unauthenticated, result.Outcome);
+        Assert.Null(result.HouseholdId);
+        Assert.Null(result.Name);
+        Assert.Null(result.ErrorMessage);
         Assert.Empty(repository.AddedHouseholds);
     }
 
@@ -98,6 +110,11 @@ public sealed class CreateHouseholdHandlerTests
     private sealed class FakeCurrentAccount(Guid accountId) : ICurrentAccount
     {
         public Guid AccountId { get; } = accountId;
+    }
+
+    private sealed class UnauthenticatedCurrentAccount : ICurrentAccount
+    {
+        public Guid AccountId => throw new UnauthorizedAccessException();
     }
 
     private sealed class RecordingHouseholdRepository(

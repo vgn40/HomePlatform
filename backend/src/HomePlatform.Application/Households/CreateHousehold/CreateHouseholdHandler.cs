@@ -21,15 +21,36 @@ public sealed class CreateHouseholdHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        var household = new Household(
-            command.Name,
-            _currentAccount.AccountId);
+        Guid accountId;
+
+        try
+        {
+            accountId = _currentAccount.AccountId;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return CreateHouseholdResult.Unauthenticated();
+        }
+
+        Household household;
+
+        try
+        {
+            household = new Household(
+                command.Name,
+                accountId);
+        }
+        catch (ArgumentException exception)
+        {
+            return CreateHouseholdResult.Invalid(
+                exception.Message);
+        }
 
         await _householdRepository.AddAsync(
             household,
             cancellationToken);
 
-        return new CreateHouseholdResult(
+        return CreateHouseholdResult.Success(
             household.Id,
             household.Name);
     }

@@ -14,30 +14,36 @@ public static class HouseholdEndpoints
                     CreateHouseholdHandler handler,
                     CancellationToken cancellationToken) =>
                 {
-                    try
+                    var command = new CreateHouseholdCommand(
+                        request.Name);
+
+                    var result = await handler.Handle(
+                        command,
+                        cancellationToken);
+
+                    return result.Outcome switch
                     {
-                        var command = new CreateHouseholdCommand(
-                            request.Name);
+                        CreateHouseholdOutcome.Success
+                            when result.HouseholdId is Guid householdId
+                            && result.Name is not null
+                            => Results.Created(
+                                $"/api/households/{householdId}",
+                                new CreateHouseholdResponse(
+                                    householdId,
+                                    result.Name)),
 
-                        var result = await handler.Handle(
-                            command,
-                            cancellationToken);
+                        CreateHouseholdOutcome.Invalid
+                            => Results.Problem(
+                                title: "Invalid household",
+                                detail: result.ErrorMessage,
+                                statusCode: StatusCodes.Status400BadRequest),
 
-                        var response = new CreateHouseholdResponse(
-                            result.HouseholdId,
-                            result.Name);
+                        CreateHouseholdOutcome.Unauthenticated
+                            => Results.Unauthorized(),
 
-                        return Results.Created(
-                            $"/api/households/{result.HouseholdId}",
-                            response);
-                    }
-                    catch (ArgumentException exception)
-                    {
-                        return Results.Problem(
-                            title: "Invalid household",
-                            detail: exception.Message,
-                            statusCode: StatusCodes.Status400BadRequest);
-                    }
+                        _ => throw new InvalidOperationException(
+                            "Unexpected CreateHousehold outcome.")
+                    };
                 })
             .RequireAuthorization()
             .WithName("CreateHousehold")
