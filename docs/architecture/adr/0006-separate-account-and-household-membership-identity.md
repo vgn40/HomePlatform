@@ -1,6 +1,7 @@
 # ADR 0006: Separate Account and Household Membership Identity
 
-Status: Proposed
+Status: Accepted
+Accepted: 2026-08-30
 
 ## Context
 
@@ -23,17 +24,29 @@ to a particular Household. Household access must depend on a current membership
 and its authority role, not on possession of an Account identifier or a family
 relationship label.
 
-This decision is required before the first durable membership mapping and
+This decision was required before the first durable membership mapping and
 migration. The modular monolith and its Domain/Application/Infrastructure/API
 layering remain unchanged.
 
-### Working-tree update
+### Implementation status
 
-After this proposal was drafted, concurrent uncommitted Domain edits introduced
-`MembershipId`, optional `AccountId`, and AccountId-based Household creation.
-The handler and tests still use prior signatures; no fresh green build, mapping,
-migration, linking workflow, or concurrency proof exists. That prototype does
-not change this ADR's Proposed status or approve its unresolved consequences.
+The decision has now been adopted by the implemented Household slice.
+
+Implemented and verified:
+
+- `HouseholdMember` has a stable `MembershipId`.
+- `AccountId` is optional.
+- Household creation creates a distinct Owner Membership.
+- Creator identity comes from trusted server-side actor context rather than
+  request data.
+- Duplicate non-null Account links are protected in the Household aggregate.
+- PostgreSQL enforces scoped uniqueness for `(HouseholdId, AccountId)`.
+- EF Core mappings and the `InitialHousehold` migration persist the model.
+- PostgreSQL integration tests prove save/reload, `MembershipId` preservation,
+  loginless Memberships, and stale-context duplicate protection.
+- The Testing-only HTTP slice proves that the authenticated Account becomes
+  the initial Owner and caller-supplied `AccountId` does not choose actor
+  identity.
 
 ## Decision
 
@@ -53,10 +66,11 @@ not change this ADR's Proposed status or approve its unresolved consequences.
     context. A caller-supplied `AccountId` or `UserId` is never proof of the
     caller's identity.
 
-These are the proposed target decisions for the model. Partial source code does
-not approve or fully enforce them; explicit review and follow-up work remain.
+These are the accepted identity and authority decisions for the Household
+model. Acceptance records the chosen model; it does not claim that every
+invariant or follow-up use case is implemented.
 
-## Proposed Conceptual Model
+## Conceptual Model
 
 ```text
 Account
@@ -82,10 +96,9 @@ Household 1 -> 1..N HouseholdMemberships
 This model describes domain identity and cardinality. It is not a final database
 schema.
 
-## Invariants
+## Accepted invariants and remaining implementation work
 
-The following invariants are part of the target decision but still require
-implementation and, where applicable, persistence and concurrency enforcement:
+The following invariants are part of the accepted decision:
 
 - `MembershipId` is never `Guid.Empty`.
 - `MembershipId` remains stable for the lifecycle of the Membership.
@@ -97,10 +110,12 @@ implementation and, where applicable, persistence and concurrency enforcement:
   to the `MembershipId`.
 - A family relationship does not grant authority implicitly.
 
-The inspected repository baseline confirms only parts of the surrounding model,
-such as the `Owner` / `Member` / `Guest` vocabulary and an in-memory duplicate
-check based on the former `UserId` identity. It does not establish the
-Membership invariants above.
+The current Household slice establishes non-empty generated `MembershipId`
+values, optional `AccountId`, distinct Owner Membership creation, and duplicate
+non-null Account protection in both the aggregate and PostgreSQL persistence.
+Verified linking and unlinking, last-Owner protection, concurrency-safe Owner
+transitions, Account-reference validation, and assignment/history preservation
+remain implementation work.
 
 ## Why Not UserId?
 
@@ -143,7 +158,7 @@ cross-household ownership, matching, privacy, and lifecycle questions without a
 validated need. It is broader than the problem that must be solved before the
 membership schema.
 
-### D. Stable MembershipId plus optional AccountId — Proposed decision
+### D. Stable MembershipId plus optional AccountId — Accepted
 
 This directly supports loginless members, later verified linking, participation
 in several Households, and stable attribution. It introduces one explicit
@@ -180,29 +195,27 @@ that fully separated bounded contexts already exist in code.
 
 ## Persistence Implications
 
-Future persistence work must give `HouseholdMember` a primary identity based on
-`MembershipId` and permit a nullable `AccountId`. Active, Account-linked
-Memberships will likely require uniqueness for `(HouseholdId, AccountId)` when
-`AccountId` is present, without imposing global uniqueness on `AccountId`.
+The implemented persistence model gives `HouseholdMember` a primary identity
+based on `MembershipId` and permits a nullable `AccountId`. PostgreSQL enforces
+uniqueness for `(HouseholdId, AccountId)` without imposing global uniqueness on
+`AccountId`; PostgreSQL's null semantics allow multiple loginless Memberships
+in one Household.
 
 The foreign-key or cross-module reference strategy must preserve the rule that
 Domain does not depend on Infrastructure. Assignments and history should store
 `MembershipId` where Membership is the relevant identity. Exact tables, keys,
-indexes, filtering for inactive Memberships, and cross-module integrity are not
-decided here. EF Core mappings and migrations follow the Domain refactor; this
-ADR creates none.
+indexes, filtering for inactive Memberships, and cross-module integrity beyond
+the implemented initial Household schema are not decided here.
 
 ## Application Implications
 
-The following use cases will need to adopt the decision without being
-implemented by this ADR:
+The implemented `CreateHousehold` use case carries business input only, obtains
+the Account actor from trusted server-side context, and creates a distinct Owner
+Membership. `AddMember` supports loginless Memberships and optional Account
+links, but it is not yet an authorized linking workflow.
 
-- `CreateHouseholdCommand` must carry business input, not a caller-selected
-  creator identity.
-- `CreateHouseholdHandler` must obtain the trusted Account actor from an
-  authentication abstraction and create a distinct Owner Membership.
-- `AddMember` must support a loginless Membership and, where applicable, an
-  explicitly verified Account link.
+The following use cases still need to adopt the decision:
+
 - `LeaveHousehold` and `RemoveMember` must operate on `MembershipId`, authorize
   the actor through their own current Membership, and protect the last Owner.
 - `LinkAccountToMembership` must be an explicit authorized use case that
@@ -211,36 +224,41 @@ implemented by this ADR:
 
 ## API Implications
 
-Creator identity must eventually come from authenticated server-side actor
-context, never from a request field. API contracts must not expose internal
-Domain entities directly. Requests and results may use `AccountId` or
-`MembershipId` only according to the use-case meaning: Account identity for an
-explicit Account operation, and Membership identity for Household participation
-or attribution.
+The Testing-only Create Household HTTP slice obtains creator identity from the
+authenticated server-side actor context, never from a request field, and does
+not expose internal Domain entities. The production authentication mechanism
+and production Create Household route are not implemented by this slice.
+Future requests and results may use `AccountId` or `MembershipId` only according
+to the use-case meaning: Account identity for an explicit Account operation,
+and Membership identity for Household participation or attribution.
 
 ## Testing Implications
+
+Implemented Domain, Application, and PostgreSQL integration tests cover:
+
+- creation of loginless and Account-linked Memberships;
+- non-empty `MembershipId` and persistence round-trips that preserve it;
+- aggregate rejection and database-constraint rejection of duplicate non-null
+  Account Memberships in the same Household;
+- trusted actor creation of the initial Owner Membership; and
+- rejection of anonymous or invalid Testing-host actor identity without writes.
 
 Future tests must cover at least:
 
 ### Domain
 
-- creating a loginless Membership;
-- creating an Account-linked Membership;
-- rejecting duplicate active Account Memberships in the same Household;
 - preserving `MembershipId` after linking or unlinking an Account;
 - preserving at least one Owner.
 
 ### Application
 
-- a trusted actor creating the initial Owner Membership;
 - the authorized Account-linking workflow, including duplicate and unauthorized
   attempts.
 
 ### Integration
 
-- database constraints for identifiers, nullability, and scoped uniqueness;
 - concurrency on Owner and Membership transitions;
-- persistence round-trips for loginless, linked, and later-linked Memberships.
+- persistence round-trips for later-linked and unlinked Memberships.
 
 ## Consequences
 
@@ -263,18 +281,14 @@ Costs and negative consequences:
 - Persistence mappings, constraints, and migrations become slightly more
   complex.
 
-## Follow-up Work
+## Remaining follow-up work
 
-1. Refactor `User` terminology to `Account` where it denotes authentication
-   identity.
-2. Refactor `HouseholdMember` to use `MembershipId` and optional `AccountId`.
-3. Confirm `HouseholdRole` remains `Owner` / `Member` / `Guest`.
-4. Implement Household membership and last-Owner invariants.
-5. Update the `CreateHousehold` Application use case to use trusted actor
-   context and create an Owner Membership.
-6. Update Domain and Application tests.
-7. Restore and verify a green build and test suite.
-8. Only then create EF Core mappings and a migration.
+1. Implement verified Account linking and unlinking while preserving
+   `MembershipId`.
+2. Protect the last Owner invariant, including concurrent transitions.
+3. Validate Account references once the Identity boundary exists.
+4. Implement Household resource authorization through Membership.
+5. Preserve Membership attribution for future assignments and history.
 
 ## Non-Decisions
 
@@ -285,5 +299,6 @@ This ADR does not decide:
 - a granular ACL or capability engine;
 - a Household-to-Household social graph;
 - authentication token or cookie implementation;
-- the final database schema;
+- the future Household database schema beyond the implemented identity
+  constraints;
 - calendar or task assignment implementation.

@@ -1,48 +1,54 @@
 # HomePlatform Domain Model
 
 Status: **Authoritative current-versus-target DDD description**  
-Last reviewed: **2026-08-29**
+Last reviewed: **2026-09-02**
 
 ## Current implemented state
 
-The current Domain is small and still evolving:
+The current Domain is small and still evolving. Its first Household slice is
+implemented and persisted, while membership lifecycle and authorization remain:
 
 | Concept | Current shape | Current status |
 |---|---|---|
-| Household | Guid identity, trimmed nonblank Name, UTC timestamps, private member list | aggregate-root candidate; edited constructor requires Owner AccountId and creates Membership |
-| HouseholdMember | generated `MembershipId`, optional `AccountId`, HouseholdRole | uncommitted prototype of proposed ADR 0006; no link/lifecycle behavior |
-| HouseholdRole | Owner, Member, Guest | authorization vocabulary present; enforcement incomplete |
+| Household | Guid identity, trimmed Name bounded to 100 characters, UTC timestamps, private member list | aggregate root for the implemented CreateHousehold slice; creates one Account-linked Owner Membership |
+| HouseholdMember | generated `MembershipId`, optional `AccountId`, HouseholdRole | implemented entity inside Household; persisted with scoped uniqueness; no link/unlink lifecycle behavior |
+| HouseholdRole | Owner, Member, Guest | accepted authorization vocabulary; resource enforcement and role transitions incomplete |
 | User | Guid, username, email | ownership is unclear; must not duplicate ASP.NET Core Identity credentials |
 | Result | success/failure primitive | small Domain helper, not an HTTP contract |
 
-The inspected working tree is internally inconsistent: Household now accepts an
-Owner AccountId and creates a Membership, while the current handler and tests
-still call older constructors and member APIs. No active EF mapping or migration
-makes this a durable database model. The source prototype does not accept ADR
-0006 and must not be presented as a finished aggregate design.
+The current source, handler, mappings, migrations, and tests agree on the core
+Account/Membership identity decision in accepted ADR 0006. PostgreSQL tests
+prove persistence and materialization, but this is not a finished membership
+lifecycle or authorization model.
 
 ## Implemented invariants
 
 Source inspection shows these early rules:
 
-- Household Name cannot be blank and is trimmed.
-- the edited Household constructor rejects an empty Owner AccountId and creates
+- Household Name cannot be blank, is trimmed, and is limited to 100 characters;
+- the Household constructor rejects an empty Owner AccountId and creates
   one Owner Membership;
 - HouseholdMember generates MembershipId and rejects empty AccountId/undefined
   roles;
 - `AddMember` can create a loginless Membership and rejects duplicate linked
   AccountId within one Household instance;
-- member addition updates `UpdatedAt`.
+- member addition updates `UpdatedAt`;
+- EF maps the private collection and PostgreSQL preserves Membership identity,
+  nullable Account links, and scoped uniqueness.
 
-Not yet proven or implemented consistently:
+Partially implemented or not yet proven:
 
-- bounded Name length;
-- collection exposure that cannot be downcast/mutated;
-- ADR approval and stable Membership identity across persistence/lifecycle;
+- `Members` is typed as `IReadOnlyCollection`, but returns the backing `List`
+  and remains downcastable/mutable by a caller;
+- the `UpdatedAt` Domain test uses `Thread.Sleep`, so the test style gate is not
+  complete;
+- stable Membership identity is proven across persistence, but not across the
+  unimplemented link/unlink lifecycle;
 - later verified Account linking and unlinking;
 - last-Owner behavior across every leave/remove/demote race;
-- persistence constraints, concurrency tokens, or PostgreSQL round-trip;
-- resource authorization and trusted actor boundary.
+- concurrency tokens and stable conflict mapping;
+- production resource authorization. The trusted actor boundary is proven only
+  in the Testing-only CreateHousehold route.
 
 ## Ubiquitous language
 
@@ -57,13 +63,12 @@ Not yet proven or implemented consistently:
 | Assignment | responsibility attributed to Membership | ownership by an authentication record |
 | Household context | requested HouseholdId authorized on the server | trusted global client-side active state |
 
-`Account`, stable `Membership`, and their cardinality remain proposed by
+`Account`, stable `Membership`, and their cardinality are accepted by
 [ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md),
-not implemented fact.
+and implemented for the first Household slice. Later linking, lifecycle, and
+authorization behavior remains target work.
 
-## Proposed core model
-
-If ADR 0006 is accepted:
+## Accepted core model
 
 ```text
 Identity & Access
@@ -82,8 +87,8 @@ Households
 ```
 
 - one Account may link to Memberships in several Households;
-- one active linked Membership per `(HouseholdId, AccountId)` is the likely
-  scoped uniqueness rule;
+- one active linked Membership per `(HouseholdId, AccountId)` is the implemented
+  scoped uniqueness rule for the current schema;
 - loginless Membership can later link an Account without changing
   `MembershipId`, assignments, or history;
 - Account linking/unlinking is an explicit verified use case;
@@ -94,8 +99,8 @@ Households
 
 | Aggregate / concept | Status | Owns or protects |
 |---|---|---|
-| Household | CURRENT candidate, target retained | small member set, role transitions, duplicate link, last Owner |
-| HouseholdMember | PROPOSED entity inside Household | stable participation identity and link state; no repository yet |
+| Household | CURRENT aggregate root, partial lifecycle | creation, small member set, duplicate link; role transitions and last Owner remain |
+| HouseholdMember | CURRENT entity inside Household | stable participation identity and optional Account link; link/unlink lifecycle remains |
 | Invitation | PROPOSED aggregate | token, target, expiry, revoke, single acceptance |
 | HouseholdTask | PROPOSED aggregate | task state, assignment, due/completion/reopen |
 | Routine | PROPOSED aggregate | recurrence definition and occurrence semantics |
@@ -116,7 +121,8 @@ Detailed reasoning is preserved in the
 Current code has no explicit value-object type. Candidates are introduced only
 when their behavior pays for the type:
 
-- bounded HouseholdName before durable mapping;
+- a HouseholdName value object only if repeated name behavior justifies it; the
+  current primitive string is bounded before durable mapping;
 - RecurrencePattern and civil-time semantics before recurring tasks;
 - provider/external identifiers only inside Calendar Integration;
 - strongly typed IDs only if repeated wrong-ID defects justify them.

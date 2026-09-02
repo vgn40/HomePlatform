@@ -13,9 +13,11 @@ and generated research evidence.
 3. [Next steps](architecture/roadmap/NEXT-STEPS.md) — the current executable
    order and stop-gate.
 
-Current implementation remains early: health/readiness and initial Household
-code exist, while the first end-to-end product slice and frontend do not.
-Proposed ADR 0006 must be reviewed before the first durable Membership schema.
+Current implementation remains early but includes one complete Testing-host
+runtime path: CreateHousehold persists an authenticated actor's initial Owner
+Membership to PostgreSQL. ADR 0006 is Accepted and the first migrations exist.
+Production Identity/resource authorization, Phase 1 quality/CI gates, and the
+frontend remain incomplete.
 
 ## Authoritative documents
 
@@ -34,7 +36,7 @@ Proposed ADR 0006 must be reviewed before the first durable Membership schema.
 ## Architecture
 
 - [Architecture overview](architecture/README.md)
-- [Accepted and proposed ADRs](architecture/adr/README.md)
+- [Architecture decision records](architecture/adr/README.md)
 - [Target architecture](architecture/target/TARGET-ARCHITECTURE.md)
 - [Context map](architecture/target/CONTEXT-MAP.md)
 - [Domain model](architecture/target/DOMAIN-MODEL.md)

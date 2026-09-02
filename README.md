@@ -5,11 +5,12 @@ HomePlatform is an early-stage household coordination platform and a pragmatic
 household membership, tasks and routines, shopping, events, and a read-only
 Today view.
 
-> **Current status:** backend foundation and the first `CreateHousehold` slice
-> are in progress. Health/readiness endpoints and initial Household domain code
-> exist, but no household workflow is exposed end to end and no frontend has
-> been implemented. See the [current next steps](docs/architecture/roadmap/NEXT-STEPS.md)
-> for the live implementation gate.
+> **Current status:** the backend foundation and a PostgreSQL-backed,
+> authenticated Testing-only `CreateHousehold` slice exist. The 2026-09-02
+> baseline passed 50/50 tests and EF model verification. Production Identity,
+> resource authorization, remaining Phase 1 quality/CI gates, and the frontend
+> are not implemented. See the
+> [current next steps](docs/architecture/roadmap/NEXT-STEPS.md) for the live gate.
 
 ## Technology
 
@@ -35,11 +36,12 @@ ports. Infrastructure owns persistence and technical adapters. API is the HTTP
 boundary and composition root. Business modules remain inside this deployment
 until evidence justifies a more complex topology.
 
-The proposed identity model separates a credential-bearing `Account` from a
+The accepted identity model separates a credential-bearing `Account` from a
 stable household `Membership`; it is recorded in
 [ADR 0006](docs/architecture/adr/0006-separate-account-and-household-membership-identity.md)
-and remains **Proposed**, so the first durable membership schema is blocked
-pending review.
+and is implemented for the first Household slice. Verified linking/unlinking,
+last-Owner concurrency, Account validation, and Membership resource
+authorization remain follow-up work.
 
 ## Repository layout
 
@@ -112,8 +114,8 @@ working tree before starting the next roadmap step.
 
 ## Migrations
 
-No migration exists yet. Do not create the first membership migration until
-ADR 0006 is reviewed and the Domain/Application model is aligned. The
-[current next steps](docs/architecture/roadmap/NEXT-STEPS.md) define the gate
-and require a repository-local pinned `dotnet-ef` tool plus fresh PostgreSQL
-proof.
+`InitialHousehold` and `LimitHouseholdNameLength` define the current Household
+schema. The repository pins dotnet-ef 10.0.4; Testcontainers applies migrations
+from zero, and the 2026-09-02 model check reported no pending changes. See the
+[current next steps](docs/architecture/roadmap/NEXT-STEPS.md) before extending
+the schema.

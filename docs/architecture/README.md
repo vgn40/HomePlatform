@@ -1,7 +1,7 @@
 # HomePlatform Architecture
 
 This section explains the implemented architecture, the approved direction,
-and the proposed decisions that still block implementation. It is intentionally
+and the decisions and gates that still constrain implementation. It is intentionally
 separate from product research and generated evidence.
 
 ## Current state
@@ -9,13 +9,14 @@ separate from product research and generated evidence.
 - One ASP.NET Core modular-monolith foundation with Domain, Application,
   Infrastructure, and API projects.
 - Health/readiness and PostgreSQL connectivity exist.
-- Household, HouseholdMember, roles, and an incomplete CreateHousehold slice
-  exist in the current working tree.
-- The constructor, handler, and tests are not aligned in the inspected
-  2026-08-29 snapshot; a current green solution has not been established by
-  this documentation task.
-- No product endpoint, authentication/authorization implementation, active EF
-  mapping, migration, end-to-end household flow, or frontend exists.
+- Household, HouseholdMember, roles, and a PostgreSQL-backed CreateHousehold
+  slice exist in the current working tree.
+- ADR 0006 is Accepted; source, handler, mappings, migrations, and tests align
+  on its core Account/Membership identity decision.
+- A 2026-09-02 full baseline passed 50/50 tests and EF reported no model drift.
+- The authenticated product route and fake scheme are Testing-only; Production
+  Identity/resource authorization, a green format/CI gate, deployment, and the
+  frontend do not exist.
 
 ## Target state
 

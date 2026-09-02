@@ -1,7 +1,7 @@
 # HomePlatform Technical-Debt Register
 
 Status: **Authoritative debt register**  
-Last reviewed: **2026-08-29**
+Last reviewed: **2026-09-02**
 
 Debt is a conscious correctness or maintainability obligation with a trigger
 and exit gate. Unbuilt product scope is not automatically technical debt.
@@ -17,20 +17,17 @@ and exit gate. Unbuilt product scope is not automatically technical debt.
 
 | ID | Priority | Current evidence | Required action | Exit evidence |
 |---|---|---|---|---|
-| TD-001 | P0 | Household/HouseholdMember now use new Account/Membership signatures, while handler/tests still use prior APIs; fresh build not verified | align approved Domain, handler, and tests after ADR gate | full solution build and every test project green |
-| TD-002 | P0 | uncommitted Domain code prototypes ADR 0006 while the ADR remains Proposed | explicitly accept/reject/revise Account/Membership identity before EF mapping | ADR disposition and all target/roadmap/model/source semantics agree |
-| TD-003 | P0 | current command carries `CreatorUserId`; no trusted actor port exists | command contains business input only; inject trusted Account context | forged/missing actor tests prove zero impersonation/writes |
-| TD-004 | P1 | Household name/collection/owner behavior is incomplete or inconsistent | enforce bounded name, invariant-safe Owner, non-downcastable member view | deterministic Domain tests pass before mapping |
-| TD-005 | P1 | HouseholdMember now generates MembershipId and permits AccountId, but lacks approved link/unlink/lifecycle and persistence semantics | finish only the ADR-approved model and link lifecycle | Domain + PostgreSQL identity/cardinality tests pass |
+| TD-004 | P1 | bounded Name and initial Owner are proven, but `Members` returns the backing `List` as `IReadOnlyCollection` and can be downcast; one timestamp test uses `Thread.Sleep` | expose a non-downcastable read-only view and make the timestamp test deterministic without a speculative clock framework | focused Domain tests plus full suite and format gate pass |
+| TD-005 | P1 | MembershipId, nullable AccountId, loginless membership, aggregate/database scoped uniqueness, and PostgreSQL round-trip are proven; link/unlink and lifecycle behavior do not exist | implement only explicit authorized link/unlink/lifecycle use cases when their roadmap gate is reached | Domain + PostgreSQL identity/cardinality/concurrency tests pass |
 | TD-006 | P1 | Domain `User` overlaps future ASP.NET Core Identity ownership | remove/rename/justify it; never duplicate credentials | Phase 2 model and migration have one credential authority |
-| TD-007 | P1 | CreateHousehold has no behavior tests and throws generic expected failures | add explicit outcomes and hand-written handler tests | zero-write invalid/unauthenticated cases and success proven |
-| TD-008 | P1 | DbContext has no active Household model; mapping files are empty; repository is unregistered | complete focused mapping/repository after ADR | save/clear/reload and one-commit PostgreSQL proof |
-| TD-009 | P1 | no migration; root previously suggested floating global EF tooling | pin local `dotnet-ef`, review first migration, prove from zero | CI migration plus no-pending-model result |
-| TD-010 | P1 | no product endpoint, authentication, resource authorization, or IDOR suite | Testing-only first slice, then real Identity and Account-to-Membership authz | security roadmap phase gates pass |
+| TD-007 | P1 | hand-written handler tests now prove success, invalid input zero-write, cancellation forwarding, and repository-failure propagation; expected validation/unauthenticated conditions are still exception-shaped and no failing-current-account Application test exists | define stable expected Application outcomes and prove a failing current-account port causes zero writes | focused Application tests prove every expected outcome without EF or HTTP |
+| TD-009 | P1 | two migrations and a local dotnet-ef 10.0.4 pin exist; fresh Testcontainers migration and local no-pending-model check pass | reproduce migration/model checks in discoverable green CI | clean CI migration plus no-pending-model result |
+| TD-010 | P1 | a fake-authenticated Testing-only CreateHousehold endpoint exists and Production is 404; production Identity, Membership resource authorization, and IDOR coverage remain absent | add real Identity in Phase 2, then Account-to-Membership authorization and IDOR proof in Phase 3 | security roadmap phase gates pass |
 | TD-011 | P1 | last-Owner, Account linking, invitation consumption, and future same-resource edits lack race proof | add database constraints/version/conditional operations and barrier tests | real PostgreSQL proves one winner/valid invariant |
-| TD-012 | P1 | no CI; current format/build state can drift | add restore/audit/build/test/migration/format workflow | clean CI reproduces local evidence |
+| TD-012 | P1 | intended workflow content exists under non-discoverable `github/workflows`; no hosted run is evidenced; local format verification fails on whitespace, charset, and final-newline findings | move the reviewed workflow to `.github/workflows`, repair formatting narrowly, and run it in a clean environment | clean CI reproduces restore/build/test/migration/model/format evidence |
 | TD-013 | P1 | no production container/deploy/observability/backup/restore/export/deletion proof | complete Phase 6 operational and trust work | public-beta gate is evidenced, not asserted |
 | TD-014 | P1 | recurrence/time behavior is undefined | decide IANA zone, DST, missed/edit-series, idempotent occurrence rules | Phase 4 deterministic + PostgreSQL tests pass |
+| TD-015 | P1 | OpenAPI is exposed only in Development while `POST /api/households` is mapped only in Testing, so no HTTP-exposed document contains the route and no document-generation test proves its declared 201/400/401 responses | generate and integration-test the Testing-host OpenAPI document without exposing fake-auth product routes in Production | an automated test finds the route and 201/400/401 responses in generated OpenAPI; Production remains 404 |
 
 ## Accepted shortcuts
 
@@ -61,6 +58,21 @@ Do not introduce these as “cleanup” without their target-architecture trigge
   multi-region;
 - global Person/Profile, general ACL engine, external calendar sync, AI,
   location, meals, expenses, maintenance, rewards, or full RRULE.
+
+## Closed with 2026-09-02 evidence
+
+- **TD-001:** Domain, handler, and all test projects are aligned; restore/build
+  and 50/50 tests pass.
+- **TD-002:** ADR 0006 was intentionally accepted on 2026-08-30, and the
+  implemented core identity model aligns with it.
+- **TD-003:** `CreateHouseholdCommand` carries Name only; `ICurrentAccount`
+  supplies the server-derived actor; anonymous/malformed/forged actor tests
+  prove no impersonation and zero rows on rejection.
+- **TD-008:** active EF mappings and repository registration exist;
+  PostgreSQL save/clear/reload and the one-aggregate write path are proven.
+
+These closures do not close the narrower follow-up gaps recorded in TD-004,
+TD-005, TD-007, TD-009, TD-010, TD-011, TD-012, or TD-015.
 
 ## Recently closed documentation debt
 

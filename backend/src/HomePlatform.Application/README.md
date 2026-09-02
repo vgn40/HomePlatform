@@ -1,10 +1,13 @@
 # HomePlatform.Application
 
 Application contains explicit use cases, orchestration, ports, and
-boundary-neutral results. The current working tree contains an incomplete
-`CreateHousehold` use case and `IHouseholdRepository`; it is not yet exposed or
-proven end to end.
+boundary-neutral results. `CreateHousehold`, `IHouseholdRepository`, and
+`ICurrentAccount` implement the first Name-only use case. Focused tests prove
+trusted actor ownership, validation zero-write behavior, cancellation
+forwarding, and failure propagation; the Testing-only HTTP/PostgreSQL path is
+also proven.
 
-Application must depend only on Domain. Trusted actor identity will enter
-through an Application-owned current-account port, never through a client-owned
-command field. See the [current next steps](../../../docs/architecture/roadmap/NEXT-STEPS.md).
+Application depends only on Domain. Trusted actor identity enters through the
+Application-owned current-account port, never through a client-owned command
+field. Stable expected validation/unauthenticated outcomes remain follow-up
+work. See the [current next steps](../../../docs/architecture/roadmap/NEXT-STEPS.md).

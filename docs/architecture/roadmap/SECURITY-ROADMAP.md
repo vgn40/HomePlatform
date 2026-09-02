@@ -1,37 +1,40 @@
 # HomePlatform Security Roadmap
 
 Status: **Authoritative security plan**  
-Last reviewed: **2026-08-29**  
+Last reviewed: **2026-09-02**
 Scope: authentication, authorization, API/data protection, secure operations,
 and blocking verification gates for the six-month plan  
 Rule: authentication proves Account identity; authorization decides what that
 Account's current Membership may do to a specific Household resource.
 
-Target terminology follows proposed
+Target terminology follows accepted
 [ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md).
-Until that ADR is accepted or rejected, `AccountId`/`MembershipId` statements
-below are target direction and no durable membership schema is authorized.
+The current durable schema implements the first Account/Membership identity
+slice; linking, last-Owner concurrency, and resource authorization remain gated
+follow-up work.
 
 ## Current security posture
 
 | Check | Status | Current evidence |
 |---|---|---|
-| ProblemDetails/central exception middleware configured | PASS | Api registers `AddProblemDetails` and `UseExceptionHandler`. No product exception mapping exists yet. |
-| Development OpenAPI restricted by environment | PASS | OpenAPI is mapped only in Development. |
+| ProblemDetails/central exception middleware configured | PARTIAL | Api registers `AddProblemDetails` and `UseExceptionHandler`; expected invalid Household input maps to 400. Stable error codes/trace assertions and unexpected-provider non-disclosure tests are absent. |
+| Development OpenAPI restricted by environment | PARTIAL | OpenAPI is mapped only in Development, but the Household route is mapped only in Testing, so no HTTP-exposed document contains it and no document-generation test proves its declared responses. |
 | PostgreSQL readiness without credential disclosure | PASS | `/ready` reports ready/unavailable only. |
 | Known NuGet vulnerability scan | HISTORICAL PASS / NOT REVERIFIED | the 2026-08-27 audit reported no known vulnerable direct/transitive packages; connected CI must refresh advisory data. |
 | Authentication/account lifecycle | FAIL | not implemented. |
 | Authorization/resource checks | FAIL | not implemented. |
-| Trusted creator identity | FAIL for a future HTTP endpoint | current command carries CreatorUserId; no endpoint/auth context exists. Never bind this field from a client. |
+| Trusted creator identity | PASS for Testing slice | command carries Name only; `ICurrentAccount` derives the actor from authenticated claims; anonymous/malformed and caller-supplied AccountId tests prove zero impersonation. |
 | Rate limiting/lockout policy | FAIL | not implemented. |
 | HTTPS/reverse-proxy production policy | FAIL | not implemented; local launch is HTTP. |
 | CORS policy | NOT VERIFIED / not required yet | no frontend/API cross-origin contract exists. Absence is safer than `AllowAnyOrigin`; configure exact origins only when Expo web exists. |
 | Secrets management | PARTIAL | disposable development credentials are tracked in example/development files; no production secret store/configuration exists. |
 | Logging redaction policy | FAIL | default logging exists; no explicit sensitive-data rules/tests. |
-| Security integration tests | FAIL | no auth, IDOR, token, redaction, or disclosure tests. |
+| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, and Production 404; real Identity, IDOR, token, redaction, and unexpected-error disclosure tests are absent. |
 | Database least privilege/backups/restore | NOT VERIFIED | no deployed database or production roles exist. |
 
-The API currently maps only health/readiness, so there is not yet a remotely exploitable household endpoint. The security stop-gate is to avoid exposing one until Identity and trusted caller handling are ready.
+Production currently maps only health/readiness; the product route exists only
+in the Testing environment. The security stop-gate is to keep it absent from
+Production until real Identity and trusted caller handling are ready.
 
 ## Trust model
 
@@ -68,7 +71,7 @@ Domain invariant + permission decision
 single transaction / safe response
 ```
 
-In Phase 1, make `CreateHouseholdCommand` contain Name only and inject a minimal
+In Phase 1, `CreateHouseholdCommand` contains Name only and injects a minimal
 Application current-account port into the handler. A scoped API adapter uses
 `IHttpContextAccessor`, parses exactly the configured subject/NameIdentifier
 claim as Guid, and fails closed on missing/malformed identity through a distinct
@@ -324,12 +327,17 @@ Log event name, safe pseudonymous user/resource identifiers, request/trace ID, o
 
 ### Phase 1 gate
 
-- ADR 0006 is explicitly accepted/rejected before a durable Membership schema.
-- endpoint request contains only Name.
-- command contains no actor ID; handler injects failing-closed current Account.
-- route exists only in the authenticated Testing host; a Production host proves 404/unmapped.
-- authenticated principals with missing/malformed configured Guid subject claims receive 401 with zero repository calls/rows.
-- safe ProblemDetails/logging pattern and connected dependency audit in CI.
+- **PASS:** ADR 0006 is explicitly Accepted and the durable core identity schema
+  aligns with it.
+- **PASS:** endpoint request contains only Name.
+- **PASS:** command contains no actor ID; handler injects current Account.
+- **PASS:** route exists only in the authenticated Testing host; a Production
+  host test proves 404/unmapped.
+- **PASS:** missing/malformed Testing-host Guid subjects receive 401 with zero
+  rows.
+- **OPEN:** generated OpenAPI contract, stable ProblemDetails code/trace proof,
+  unexpected-error non-disclosure, connected dependency audit, green formatting,
+  and discoverable CI.
 
 ### Phase 2 gate
 

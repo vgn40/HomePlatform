@@ -1,7 +1,7 @@
 # HomePlatform Six-Month Masterplan
 
 Status: **Authoritative strategic roadmap**  
-Last reviewed: **2026-08-29**  
+Last reviewed: **2026-09-02**
 Planning horizon: approximately 26 weeks
 
 ## Executive direction
@@ -12,25 +12,29 @@ frameworks or distributed infrastructure. The six-month outcome is not a broad
 family super-app; it is a coherent product whose identity, authorization,
 transactions, time behavior, tests, and operations can be defended.
 
-The current phase is **Phase 1 — settle membership identity and complete the
-CreateHousehold slice**. The first durable membership schema is blocked until
-[ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md)
-is explicitly accepted or rejected.
+The current phase is **Phase 1 — finish the CreateHousehold evidence and quality
+gates**. ADR 0006 is Accepted, the first durable Household schema exists, and
+the Testing-only vertical slice passes against PostgreSQL. Phase 1 remains open
+because Domain encapsulation/test cleanup, generated OpenAPI proof, formatting,
+and a discoverable green CI run are incomplete.
 
 For the next executable actions, use [NEXT-STEPS.md](NEXT-STEPS.md). It is the
 only current implementation-order document.
 
 ## Current state
 
-The repository has a .NET 10 layered foundation, health/readiness, PostgreSQL
-connectivity, early Household code, and an incomplete CreateHousehold slice. It
-does not have a product endpoint, authentication, active household persistence,
-migrations, CI/CD, a deployed environment, or a frontend.
+The repository has a .NET 10 layered foundation, health/readiness, active
+Household persistence, two migrations, and an authenticated Testing-only
+CreateHousehold endpoint. Server-derived actor identity, 201/400/401 behavior,
+Production non-exposure, migration from zero, save/reload, loginless members,
+and scoped Account-link uniqueness are covered by PostgreSQL/Testcontainers.
+A 2026-09-02 restore/build/test run passed 50/50 tests and EF reported no model
+drift.
 
-Source inspection on 2026-08-29 found that the edited Household constructor,
-handler, and Domain tests are not aligned. The previous role-vocabulary
-compilation diagnosis is historical; this documentation task did not establish
-a fresh green build.
+Production Identity, Membership resource authorization, deployment, and the
+frontend remain absent. The workflow file is not in GitHub's discoverable
+`.github/workflows` location, no HTTP-exposed OpenAPI document currently
+contains the Testing-only route, and local format verification fails.
 
 ## Target beta scope
 
@@ -73,7 +77,7 @@ Goal: produce one secure, PostgreSQL-backed CreateHousehold vertical slice.
 
 ### Required decisions
 
-- Accept or reject ADR 0006 before mapping/migration.
+- ADR 0006 was accepted before the current mapping/migration reconciliation.
 - Distinguish authorization role from family relationship.
 - Define trusted Account actor -> initial Owner Membership behavior.
 - Preserve stable Household participation/history according to the approved
@@ -95,10 +99,12 @@ Goal: produce one secure, PostgreSQL-backed CreateHousehold vertical slice.
 
 ### Exit gate
 
-Build and every test project are green; the accepted/rejected identity decision
-matches Domain, Application, mapping, and migration; exactly one Household with
-one Owner Membership is committed for the trusted actor; Production does not
-expose a fake-auth product route.
+Build and every test project are green; the accepted identity decision matches
+Domain, Application, mapping, and migrations; exactly one Household with one
+Owner Membership is committed for the trusted actor; Production does not expose
+a fake-auth product route; generated OpenAPI proves the declared contract;
+format verification is green; and a discoverable clean CI workflow reproduces
+the evidence.
 
 ## Phase 2 — Identity and trusted Account lifecycle
 
@@ -209,7 +215,7 @@ the beta claim states remaining limitations explicitly.
 
 | Gate | Required evidence | If it fails |
 |---|---|---|
-| Membership semantics | explicit ADR 0006 disposition and matching model | block durable membership schema |
+| Membership semantics | accepted ADR 0006 and matching model | block incompatible schema changes |
 | First vertical slice | green build/tests, trusted actor, PostgreSQL create/read | do not start Identity expansion |
 | Collaboration | invite/lifecycle/authz/concurrency suite | do not expose Tasks/Shopping |
 | Recurrence | deterministic timezone/DST/edit-series/idempotency tests | ship one-time tasks only |

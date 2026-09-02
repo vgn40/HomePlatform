@@ -1,8 +1,8 @@
 # HomePlatform Target Architecture
 
 Status: **Authoritative target**  
-Last reviewed: **2026-08-29**  
-Decision boundary: accepted ADRs are binding; ADR 0006 remains **Proposed**
+Last reviewed: **2026-09-02**
+Decision boundary: accepted ADRs, including ADR 0006, are binding
 
 ## Purpose and authority
 
@@ -14,26 +14,30 @@ boundaries, the [domain model](DOMAIN-MODEL.md) owns DDD terminology, and the
 
 ## Current implemented state
 
-At the inspected 2026-08-29 working-tree snapshot:
+At the inspected 2026-09-02 working-tree snapshot:
 
 - the solution has four production projects with the intended dependency
   direction;
-- API exposes health/readiness and Development OpenAPI;
-- Infrastructure registers an empty EF Core DbContext and PostgreSQL provider;
-- Domain contains early Household, HouseholdMember, roles, User, and Result
-  code; concurrent uncommitted edits now prototype MembershipId/AccountId;
-- Application contains an incomplete CreateHousehold handler and repository
-  port;
-- untracked Household mapping placeholders are empty and the repository is not
-  registered;
-- no product endpoint, authentication, resource authorization, migration,
-  active household mapping, CI/CD, deployed environment, or frontend exists;
-- the edited Household constructor now accepts an Owner AccountId and creates a
-  Membership, while the handler and tests still use previous signatures. This
-  documentation task did not claim a current green build, and source edits do
-  not accept ADR 0006.
+- API exposes health/readiness and Development OpenAPI. A Testing-only
+  authenticated `POST /api/households` route is deliberately absent in
+  Production;
+- Infrastructure registers the Npgsql DbContext, active Household mappings,
+  and focused repository;
+- Domain implements the ADR 0006 core: stable MembershipId, nullable AccountId,
+  Owner/Member/Guest, loginless members, and scoped duplicate prevention;
+- Application implements a Name-only CreateHousehold use case and obtains the
+  actor through `ICurrentAccount`;
+- two Household migrations exist and dotnet-ef 10.0.4 is pinned locally;
+- PostgreSQL/Testcontainers tests prove migration from zero, save/reload,
+  actor-owned creation, loginless persistence, and scoped uniqueness;
+- restore/build and all 50 tests passed on 2026-09-02, and EF reported no
+  pending model changes;
+- formatting verification is not green, the workflow is not yet in GitHub's
+  discoverable `.github/workflows` location, and production Identity, resource
+  authorization, deployment, and frontend remain unimplemented.
 
-That is an early layered foundation, not a completed DDD implementation.
+That is one working test-host vertical slice, not a production-ready Household
+or Identity implementation.
 
 ## Target state
 
@@ -104,7 +108,7 @@ The target business boundaries are summarized in the
 [authoritative context map](CONTEXT-MAP.md). They start as feature folders and
 namespaces inside the existing assemblies. Do not create a project per context.
 
-The proposed minimum is Identity & Access, Households, Tasks & Routines,
+The target minimum is Identity & Access, Households, Tasks & Routines,
 Shopping, Events, and a read-only Today composition. Notifications and Calendar
 Integration begin as supporting modules only when a concrete use case triggers
 them.

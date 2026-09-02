@@ -1,19 +1,21 @@
 # HomePlatform Context Map
 
 Status: **Authoritative context description**  
-Last reviewed: **2026-08-29**
+Last reviewed: **2026-09-02**
 
 ## Current implemented state
 
-The codebase currently has layered projects and a nascent Household model, not
-fully enforced bounded contexts. There is no implemented Identity & Access,
-Tasks & Routines, Shopping, Events, Today, Notifications, or Calendar
-Integration context. Folder names alone are not bounded-context evidence.
+The codebase currently has layered projects and one implemented Households
+slice for creating and persisting a Household with its initial Owner
+Membership. It does not yet have a complete Household lifecycle or fully
+enforced bounded contexts. Production Identity & Access, Tasks & Routines,
+Shopping, Events, Today, Notifications, and Calendar Integration are not
+implemented. Folder names alone are not bounded-context evidence.
 
-## Proposed initial map
+## Accepted target map
 
 The following map is target language and ownership. Account/Membership
-cardinality depends on proposed
+cardinality follows accepted
 [ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md).
 
 ```text
@@ -43,9 +45,9 @@ Application orchestration -> email, push, and calendar adapters when triggered
 
 | Boundary | Status | Owns | Does not own |
 |---|---|---|---|
-| Households | **CURRENT, early/incomplete** | Household name, current member/role prototype | credentials, tasks, lists, events |
+| Households | **CURRENT, partial** | Household creation, Membership identity/roles, loginless members, scoped Account-link uniqueness | credentials, tasks, lists, events |
 | Identity & Access | **PROPOSED** | Account credentials, authentication/session/recovery lifecycle | household role or resource access |
-| Households target | **PROPOSED** | stable Membership, invitations, Owner invariant, Household authorization facts | passwords, unrelated feature state |
+| Households target | **PARTIAL** | stable Membership implemented; invitations, last-Owner lifecycle, verified linking, and Household authorization remain | passwords, unrelated feature state |
 | Tasks & Routines | **PROPOSED** | task lifecycle, assignment, recurrence and occurrence identity | membership source of truth |
 | Shopping | **PROPOSED** | lists/items and their transitions | catalog, recipes, membership |
 | Events | **PROPOSED** | internal household event lifecycle and time rules | external provider tokens/cursors |
@@ -54,7 +56,7 @@ Application orchestration -> email, push, and calendar adapters when triggered
 | Calendar Integration | **DEFERRED supporting module** | provider mapping/cursors/conflicts after one provider is approved | internal event language |
 | People / Profile | **DEFERRED** | nothing until a cross-household profile lifecycle is proven | a pre-schema shortcut for Membership |
 
-## Proposed responsibilities
+## Responsibilities
 
 ### Identity & Access
 
@@ -70,10 +72,11 @@ Identity.
 Language: Household, Membership, Owner, Member, Guest, Invitation, join, leave,
 remove, transfer, link Account.
 
-If ADR 0006 is accepted, Households owns stable `MembershipId`, optional
-verified `AccountId`, scoped duplicate protection, last-Owner consistency, and
-resource-authorization facts. Family relationships never grant authority
-implicitly.
+Households owns stable `MembershipId`, optional verified `AccountId`, scoped
+duplicate protection, last-Owner consistency, and resource-authorization facts.
+The first three are represented in the current model; verified link lifecycle,
+last-Owner transitions, and resource authorization remain. Family relationships
+never grant authority implicitly.
 
 ### Tasks & Routines
 
