@@ -7,7 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace HomePlatform.IntegrationTests;
 
 public sealed class HomePlatformApiFactory(
-    string connectionString)
+    string connectionString,
+    Action<IServiceCollection>? configureTestServices = null)
     : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(
@@ -34,6 +35,8 @@ public sealed class HomePlatformApiFactory(
                     TestAuthenticationHandler>(
                     TestAuthenticationHandler.SchemeName,
                     _ => { });
+
+            configureTestServices?.Invoke(services);
         });
     }
 }
