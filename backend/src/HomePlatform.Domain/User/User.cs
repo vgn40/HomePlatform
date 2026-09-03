@@ -3,7 +3,7 @@ namespace HomePlatform.Domain.User;
 public class User
 {
     public Guid Id { get; }
-    public string Username { get; private set; } 
+    public string Username { get; private set; }
     public string Email { get; private set; }
 
     public User(string username, string email)
@@ -18,7 +18,7 @@ public class User
         {
             throw new ArgumentException("Email cannot be empty.", nameof(email));
         }
-      
+
         Id = Guid.NewGuid();
         Username = username.Trim();
         Email = email.Trim();

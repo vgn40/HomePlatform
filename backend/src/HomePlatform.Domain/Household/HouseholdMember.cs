@@ -3,8 +3,8 @@ namespace HomePlatform.Domain.Household;
 public class HouseholdMember
 {
     private HouseholdMember()
-{
-}
+    {
+    }
 
     public Guid MembershipId { get; }
     public Guid? AccountId { get; private set; }
@@ -24,7 +24,7 @@ public class HouseholdMember
                 "Account ID cannot be empty.",
                 nameof(accountId));
         }
-        
+
         if (role == HouseholdRole.Owner && accountId is null)
         {
             throw new ArgumentException(
