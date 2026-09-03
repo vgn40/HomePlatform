@@ -12,11 +12,11 @@ frameworks or distributed infrastructure. The six-month outcome is not a broad
 family super-app; it is a coherent product whose identity, authorization,
 transactions, time behavior, tests, and operations can be defended.
 
-The current phase is **Phase 1 — finish the CreateHousehold evidence and quality
-gates**. ADR 0006 is Accepted, the first durable Household schema exists, and
-the Testing-only vertical slice passes against PostgreSQL. Phase 1 remains open
-because Domain encapsulation/test cleanup, generated OpenAPI proof, formatting,
-and a discoverable green CI run are incomplete.
+**Phase 1 — CreateHousehold evidence and quality gates is complete.** ADR 0006
+is Accepted, the first durable Household schema exists, and the Testing-only
+vertical slice passes against PostgreSQL. Generated OpenAPI and unexpected-error
+non-disclosure are proven, formatting is green, and a discoverable backend
+workflow has a green local equivalent. Phase 2 Identity has not started.
 
 For the next executable actions, use [NEXT-STEPS.md](NEXT-STEPS.md). It is the
 only current implementation-order document.
@@ -27,14 +27,18 @@ The repository has a .NET 10 layered foundation, health/readiness, active
 Household persistence, two migrations, and an authenticated Testing-only
 CreateHousehold endpoint. Server-derived actor identity, 201/400/401 behavior,
 Production non-exposure, migration from zero, save/reload, loginless members,
-and scoped Account-link uniqueness are covered by PostgreSQL/Testcontainers.
-A 2026-09-02 restore/build/test run passed 50/50 tests and EF reported no model
-drift.
+scoped Account-link uniqueness, exactly-one-save behavior, cancellation with zero
+rows, and transaction rollback with no partial aggregate are covered by
+PostgreSQL/Testcontainers. The Application boundary returns explicit expected
+outcomes while unexpected repository failures propagate. A 2026-09-02
+restore/build/test run passed 57/57 tests with 0 build warnings and 0 build
+errors. Dependency audit, formatting verification, migration from zero, and EF
+model verification also passed.
 
 Production Identity, Membership resource authorization, deployment, and the
-frontend remain absent. The workflow file is not in GitHub's discoverable
-`.github/workflows` location, no HTTP-exposed OpenAPI document currently
-contains the Testing-only route, and local format verification fails.
+frontend remain absent. The backend workflow is discoverable under
+`.github/workflows`; a hosted run remains **NOT VERIFIED** until the user-owned
+changes are committed and pushed.
 
 ## Target beta scope
 

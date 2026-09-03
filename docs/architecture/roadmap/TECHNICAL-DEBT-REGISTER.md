@@ -17,17 +17,12 @@ and exit gate. Unbuilt product scope is not automatically technical debt.
 
 | ID | Priority | Current evidence | Required action | Exit evidence |
 |---|---|---|---|---|
-| TD-004 | P1 | bounded Name and initial Owner are proven, but `Members` returns the backing `List` as `IReadOnlyCollection` and can be downcast; one timestamp test uses `Thread.Sleep` | expose a non-downcastable read-only view and make the timestamp test deterministic without a speculative clock framework | focused Domain tests plus full suite and format gate pass |
 | TD-005 | P1 | MembershipId, nullable AccountId, loginless membership, aggregate/database scoped uniqueness, and PostgreSQL round-trip are proven; link/unlink and lifecycle behavior do not exist | implement only explicit authorized link/unlink/lifecycle use cases when their roadmap gate is reached | Domain + PostgreSQL identity/cardinality/concurrency tests pass |
 | TD-006 | P1 | Domain `User` overlaps future ASP.NET Core Identity ownership | remove/rename/justify it; never duplicate credentials | Phase 2 model and migration have one credential authority |
-| TD-007 | P1 | hand-written handler tests now prove success, invalid input zero-write, cancellation forwarding, and repository-failure propagation; expected validation/unauthenticated conditions are still exception-shaped and no failing-current-account Application test exists | define stable expected Application outcomes and prove a failing current-account port causes zero writes | focused Application tests prove every expected outcome without EF or HTTP |
-| TD-009 | P1 | two migrations and a local dotnet-ef 10.0.4 pin exist; fresh Testcontainers migration and local no-pending-model check pass | reproduce migration/model checks in discoverable green CI | clean CI migration plus no-pending-model result |
 | TD-010 | P1 | a fake-authenticated Testing-only CreateHousehold endpoint exists and Production is 404; production Identity, Membership resource authorization, and IDOR coverage remain absent | add real Identity in Phase 2, then Account-to-Membership authorization and IDOR proof in Phase 3 | security roadmap phase gates pass |
 | TD-011 | P1 | last-Owner, Account linking, invitation consumption, and future same-resource edits lack race proof | add database constraints/version/conditional operations and barrier tests | real PostgreSQL proves one winner/valid invariant |
-| TD-012 | P1 | intended workflow content exists under non-discoverable `github/workflows`; no hosted run is evidenced; local format verification fails on whitespace, charset, and final-newline findings | move the reviewed workflow to `.github/workflows`, repair formatting narrowly, and run it in a clean environment | clean CI reproduces restore/build/test/migration/model/format evidence |
 | TD-013 | P1 | no production container/deploy/observability/backup/restore/export/deletion proof | complete Phase 6 operational and trust work | public-beta gate is evidenced, not asserted |
 | TD-014 | P1 | recurrence/time behavior is undefined | decide IANA zone, DST, missed/edit-series, idempotent occurrence rules | Phase 4 deterministic + PostgreSQL tests pass |
-| TD-015 | P1 | OpenAPI is exposed only in Development while `POST /api/households` is mapped only in Testing, so no HTTP-exposed document contains the route and no document-generation test proves its declared 201/400/401 responses | generate and integration-test the Testing-host OpenAPI document without exposing fake-auth product routes in Production | an automated test finds the route and 201/400/401 responses in generated OpenAPI; Production remains 404 |
 
 ## Accepted shortcuts
 
@@ -62,17 +57,40 @@ Do not introduce these as “cleanup” without their target-architecture trigge
 ## Closed with 2026-09-02 evidence
 
 - **TD-001:** Domain, handler, and all test projects are aligned; restore/build
-  and 50/50 tests pass.
+  and 57/57 tests pass with 0 build warnings and 0 build errors.
 - **TD-002:** ADR 0006 was intentionally accepted on 2026-08-30, and the
   implemented core identity model aligns with it.
 - **TD-003:** `CreateHouseholdCommand` carries Name only; `ICurrentAccount`
   supplies the server-derived actor; anonymous/malformed/forged actor tests
   prove no impersonation and zero rows on rejection.
+- **TD-004:** `Members` now exposes a non-downcastable live read-only view, and
+  the Domain timestamp test is deterministic without a clock abstraction or
+  `Thread.Sleep`. Repository-wide formatting was independently closed under
+  TD-012 rather than being mixed into the Domain change.
+- **TD-007:** focused Application tests prove explicit Success, Invalid, and
+  Unauthenticated outcomes, normalized success data, trusted initial Owner,
+  zero writes for invalid and unauthenticated inputs, cancellation forwarding,
+  null-command behavior, and propagation of unexpected repository failures.
 - **TD-008:** active EF mappings and repository registration exist;
-  PostgreSQL save/clear/reload and the one-aggregate write path are proven.
+  PostgreSQL proves save/clear/reload, exactly one asynchronous SaveChanges
+  invocation, cancellation with zero rows, transaction rollback with zero
+  partial rows, loginless Membership persistence, and scoped uniqueness between
+  stale aggregate instances. Stable conflict mapping is deferred to the first
+  membership mutation use case with a meaningful expected conflict; it is not
+  an expected CreateHousehold outcome.
+- **TD-009:** the repository-pinned dotnet-ef 10.0.4 applied both migrations to
+  a fresh PostgreSQL 18.6 database, and the pending-model check passed locally;
+  the same gates are present in the discoverable backend workflow.
+- **TD-012:** the reviewed workflow now lives under `.github/workflows`; the
+  historical indentation, trailing-whitespace, final-newline, and migration BOM
+  findings were repaired mechanically; the full local CI equivalent is green.
+  Hosted execution remains not verified until commit and push.
+- **TD-015:** Testing exposes generated OpenAPI containing the Testing-only
+  CreateHousehold operation with 201/400/401 and the response schema, while
+  Production continues not to expose the product route.
 
-These closures do not close the narrower follow-up gaps recorded in TD-004,
-TD-005, TD-007, TD-009, TD-010, TD-011, TD-012, or TD-015.
+These closures do not close the narrower follow-up gaps recorded in TD-005,
+TD-010, or TD-011.
 
 ## Recently closed documentation debt
 

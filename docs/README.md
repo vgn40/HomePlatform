@@ -16,8 +16,8 @@ and generated research evidence.
 Current implementation remains early but includes one complete Testing-host
 runtime path: CreateHousehold persists an authenticated actor's initial Owner
 Membership to PostgreSQL. ADR 0006 is Accepted and the first migrations exist.
-Production Identity/resource authorization, Phase 1 quality/CI gates, and the
-frontend remain incomplete.
+Phase 1 quality and local CI-equivalent gates are complete. Production
+Identity/resource authorization and the frontend remain incomplete.
 
 ## Authoritative documents
 

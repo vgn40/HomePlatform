@@ -33,15 +33,13 @@ Source inspection shows these early rules:
 - `AddMember` can create a loginless Membership and rejects duplicate linked
   AccountId within one Household instance;
 - member addition updates `UpdatedAt`;
+- `Members` exposes a live read-only view that cannot be downcast to the backing
+  mutable `List`;
 - EF maps the private collection and PostgreSQL preserves Membership identity,
   nullable Account links, and scoped uniqueness.
 
 Partially implemented or not yet proven:
 
-- `Members` is typed as `IReadOnlyCollection`, but returns the backing `List`
-  and remains downcastable/mutable by a caller;
-- the `UpdatedAt` Domain test uses `Thread.Sleep`, so the test style gate is not
-  complete;
 - stable Membership identity is proven across persistence, but not across the
   unimplemented link/unlink lifecycle;
 - later verified Account linking and unlinking;

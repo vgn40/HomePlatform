@@ -8,7 +8,7 @@ Accepted
 is implemented for the first slice: stable `MembershipId`, optional `AccountId`,
 loginless Membership, Owner/Member/Guest roles, and scoped duplicate Account
 links are represented and persisted. Link/unlink lifecycle, last-Owner
-transitions, resource authorization, and non-downcastable collection exposure
-remain incomplete. The
+transitions, and resource authorization remain incomplete. Members are exposed
+through a non-downcastable live read-only view. The
 [domain model](../../../docs/architecture/target/DOMAIN-MODEL.md) separates
 implemented, partial, target, and deferred concepts.

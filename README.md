@@ -7,9 +7,10 @@ Today view.
 
 > **Current status:** the backend foundation and a PostgreSQL-backed,
 > authenticated Testing-only `CreateHousehold` slice exist. The 2026-09-02
-> baseline passed 50/50 tests and EF model verification. Production Identity,
-> resource authorization, remaining Phase 1 quality/CI gates, and the frontend
-> are not implemented. See the
+> Phase 1 baseline passed 57/57 tests with 0 build warnings and 0 build errors,
+> plus formatting, vulnerability, fresh-migration, and EF model verification.
+> Production Identity, resource authorization, and the frontend are not
+> implemented. See the
 > [current next steps](docs/architecture/roadmap/NEXT-STEPS.md) for the live gate.
 
 ## Technology

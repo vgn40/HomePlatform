@@ -12,29 +12,26 @@ overwrite concurrent work.
 
 ADR 0006 is explicitly **Accepted**, the Account/Membership model is implemented
 for the CreateHousehold slice, two reviewed migrations exist, EF reports no
-pending model changes, and a fresh restore/build/test run passed 50/50 tests.
-The current gate is narrower: finish the remaining Step 3 encapsulation/test
-cleanup, make the public error/OpenAPI contract provable, put the workflow in a
-CI-discoverable location, and make formatting verification green before
-declaring Phase 1 complete.
+pending model changes, and the final Phase 1 run passed 57/57 tests plus
+dependency audit, formatting, fresh-migration, and pending-model gates. Phase 1
+is complete.
 
-**Next implementation task:** complete the two remaining Step 3 items without
-introducing a clock abstraction: prevent callers from downcasting `Members` to
-the backing mutable list, and remove the `Thread.Sleep`-based Domain test.
+**Next implementation task:** begin Phase 2 Identity as a separately scoped
+task. No Phase 2 source or product feature is included in this completion pass.
 
 ## Phase 1 status summary
 
 | Step | Status | Evidence | Remaining |
 |---|---|---|---|
 | 1 | **COMPLETE** | ADR 0006 is explicitly Accepted and the implemented model follows its Account/Membership decision | linking, last-Owner concurrency, Account validation, authorization, and history are accepted follow-up work, not reasons to reopen the decision |
-| 2 | **COMPLETE** | restore and full solution build passed; Domain 28/28, Application 8/8, Integration 14/14 | keep the baseline reproducible after each change |
-| 3 | **PARTIALLY COMPLETE** | bounded normalized Name, initial Owner, generated MembershipId, loginless members, scoped duplicate checks, and Domain tests exist | exposed collection is still downcastable to its backing `List`; one Domain test uses `Thread.Sleep` |
-| 4 | **PARTIALLY COMPLETE** | Name-only command, trusted current-account port, cancellation forwarding, zero-write validation tests, and persistence-failure propagation exist | expected validation/unauthenticated failures are still exception-shaped rather than stable Application outcomes; no Application-level failing-current-account test |
+| 2 | **COMPLETE** | restore and full solution build passed with 0 warnings and 0 errors; Domain 30/30, Application 8/8, Integration 19/19 | keep the baseline reproducible after each change |
+| 3 | **COMPLETE** | bounded normalized Name, initial Owner, generated MembershipId, loginless members, scoped duplicate checks, a non-downcastable live read-only Members view, and deterministic Domain tests exist | no Phase 1 aggregate-invariant work remains |
+| 4 | **COMPLETE** | explicit Success/Invalid/Unauthenticated outcomes, trusted current Account, normalized success data, cancellation forwarding, zero-write invalid/unauthenticated tests, null-command behavior, and persistence-failure propagation are proven | no Phase 1 Application-boundary work remains |
 | 5 | **COMPLETE** | active mappings, repository registration, local dotnet-ef 10.0.4 pin, two migrations, fresh-database migration via Testcontainers, and no pending model changes | no Phase 1 schema work remains |
-| 6 | **PARTIALLY COMPLETE** | PostgreSQL save/clear/reload and scoped uniqueness tests pass; the repository performs one aggregate add and one `SaveChangesAsync` by inspection | no instrumented exactly-once SaveChanges proof, cancellation/rollback integration test, or stable conflict mapping |
+| 6 | **COMPLETE** | PostgreSQL proves save/clear/reload, identity and role preservation, loginless members, scoped uniqueness including stale aggregates, exactly one asynchronous `SaveChanges` call, cancellation with zero rows, and rollback with zero partial rows | stable conflict mapping is deferred to the first membership mutation use case with a meaningful expected conflict; `CreateHousehold` has none |
 | 7 | **COMPLETE** | Testing-only authenticated POST proves 201, controlled 400, anonymous/malformed 401 with zero rows, ignored caller AccountId, and Production 404 | production authentication and route activation are deliberately Phase 2 work |
-| 8 | **PARTIALLY COMPLETE** | the HTTP-to-PostgreSQL happy path, reload, zero-row expected failures, migration from zero, no model drift, and Production non-exposure are proven | no HTTP-exposed OpenAPI document currently includes the Testing-only route, and no document-generation test proves it; unexpected error non-disclosure and remaining concurrency contracts are not tested |
-| 9 | **PARTIALLY COMPLETE** | a workflow definition with restore/build/test/format/migration/model checks exists under `github/workflows` | GitHub discovers workflows only under `.github/workflows`; no clean CI run is evidenced, and local formatting verification currently fails |
+| 8 | **COMPLETE** | the HTTP-to-PostgreSQL path, reload, zero-row expected failures, Testing OpenAPI 201/400/401, safe generic 500 non-disclosure, migration from zero, no model drift, Production non-exposure, and scoped stale-aggregate uniqueness are proven | last-Owner and linking concurrency belong to later membership mutation use cases |
+| 9 | **COMPLETE** | `.github/workflows/backend-ci.yml` covers pinned SDK/tools, restore, connected vulnerability audit, build, all tests, format, fresh PostgreSQL migration, and pending-model verification; the complete local equivalent is green | hosted execution is not verified until these user-owned changes are committed and pushed |
 
 ## Step 1 — Decide Account versus Membership identity
 
@@ -73,8 +70,8 @@ predates this reconciliation and is not inferred from source code.
 ## Step 2 — Restore a trustworthy green baseline
 
 **Status: COMPLETE.** On 2026-09-02 the exact restore/build/test sequence passed
-against the current working tree: 28 Domain, 8 Application, and 14 Integration
-tests; 50 total, 0 failed.
+against the current working tree: 30 Domain, 8 Application, and 17 Integration
+tests; 55 total, 0 failed, with 0 build warnings and 0 build errors.
 
 ### Inspect in order
 
@@ -104,12 +101,11 @@ do not establish the baseline.
 
 ## Step 3 — Protect the approved Household invariants
 
-**Status: PARTIALLY COMPLETE.** The implemented and tested rules cover bounded
-normalized Name, invariant-safe initial Owner, generated Membership identity,
-loginless members, and duplicate non-null Account prevention. The public
-`IReadOnlyCollection` currently returns the backing `List`, so callers can still
-downcast and mutate it. `AddMember_updates_updated_at` still uses
-`Thread.Sleep(1)`.
+**Status: COMPLETE.** The implemented and tested rules cover bounded normalized
+Name, invariant-safe initial Owner, generated Membership identity, loginless
+members, and duplicate non-null Account prevention. `Members` exposes a live
+read-only view that cannot be downcast to the backing mutable `List`, and the
+timestamp test no longer depends on `Thread.Sleep`.
 
 Implement and test only the approved minimum:
 
@@ -129,12 +125,12 @@ persistence-specific public mutation was added.
 
 ## Step 4 — Complete the Application use case before persistence
 
-**Status: PARTIALLY COMPLETE.** The handler, Name-only command,
-`ICurrentAccount`, focused repository port, hand-written tests, cancellation
-forwarding, validation zero-write behavior, and failure propagation exist.
-Expected validation and unauthenticated conditions remain exception-shaped,
-and the Application suite does not directly test a failing current-account
-port with zero repository writes.
+**Status: COMPLETE.** The handler returns explicit `Success`, `Invalid`, and
+`Unauthenticated` outcomes. Application tests prove normalized success data and
+the trusted Account as initial Owner; invalid and unauthenticated requests write
+nothing; null commands still throw `ArgumentNullException`; cancellation is
+forwarded; and unexpected repository failures propagate. The API maps these
+expected outcomes to 201, 400, and 401 respectively.
 
 Create Application tests before changing infrastructure:
 
@@ -178,11 +174,14 @@ migration zero and EF reports no pending model changes.
 
 ## Step 6 — Prove repository and materialization semantics
 
-**Status: PARTIALLY COMPLETE.** Real PostgreSQL tests prove save/clear/reload,
-field-backed materialization, stable `MembershipId`, loginless members, and the
-scoped unique constraint. Source inspection shows one aggregate add followed by
-one `SaveChangesAsync`. Cancellation/rollback behavior, an instrumented
-exactly-once assertion, and stable expected-conflict mapping are not yet proven.
+**Status: COMPLETE for the CreateHousehold slice.** Real PostgreSQL tests prove
+save/clear/reload, field-backed materialization, preserved HouseholdId, Name,
+MembershipId, AccountId, and Owner role, loginless members, and the scoped unique
+constraint, including contention between stale aggregate instances. An
+interceptor proves exactly one asynchronous `SaveChanges` invocation per
+repository `AddAsync`; an already-cancelled write leaves zero Household and
+HouseholdMember rows; and a forced member-insert failure rolls the transaction
+back with no partial aggregate rows.
 
 Use a reusable PostgreSQL/Testcontainers fixture. Prove:
 
@@ -190,11 +189,20 @@ Use a reusable PostgreSQL/Testcontainers fixture. Prove:
 - aggregate save, tracker clear, and reload preserve private state;
 - constraints reject invalid/scoped duplicates;
 - cancellation/failure rolls back;
-- expected PostgreSQL conflicts alone map to stable conflict outcomes;
+- when a use case has a meaningful expected PostgreSQL conflict, map that
+  conflict alone to a stable Application outcome;
 - no SQLite or EF InMemory substitute is treated as proof.
 
 Complete when handler success means a durable PostgreSQL commit and private
 Domain state materializes without public persistence setters.
+
+`CreateHousehold` has no meaningful expected database conflict: it creates a new
+aggregate with generated identities, and duplicate Account contention is a
+membership mutation concern. Provider/infrastructure failures therefore remain
+unexpected and propagate for this slice. Stable conflict mapping is not deleted;
+it is deferred to the first Account-linking or membership-mutation use case that
+can define a business-level conflict outcome. The stale-aggregate uniqueness test
+remains proof that PostgreSQL enforces the underlying scoped invariant.
 
 ## Step 7 — Add a Testing-only HTTP boundary
 
@@ -217,12 +225,11 @@ extra caller-supplied actor field cannot impersonate another Account.
 
 ## Step 8 — Prove the full slice and critical contracts
 
-**Status: PARTIALLY COMPLETE.** Most runtime-path evidence is green. OpenAPI is
-mapped only in Development while the Household route is mapped only in Testing,
-so no HTTP-exposed document currently describes this endpoint, and no direct
-document-generation test proves it. Tests also do not prove that unexpected
-persistence/provider failures avoid internal detail leakage, and only scoped
-duplicate-link concurrency is covered.
+**Status: COMPLETE for the CreateHousehold slice.** Testing OpenAPI directly
+proves the route's operation ID, tag, 201/400/401 responses, and created-response
+schema. A normally authenticated HTTP request with an overridden throwing
+repository proves an unexpected infrastructure failure becomes a Problem
+Details 500 without exception, provider, SQL, stack, or connection disclosure.
 
 Against the real Testing host and PostgreSQL, prove:
 
@@ -237,13 +244,19 @@ Against the real Testing host and PostgreSQL, prove:
 Complete when the entire HTTP -> Application -> Domain -> repository ->
 PostgreSQL path is repeatable.
 
+The stale-aggregate PostgreSQL uniqueness test is the applicable cardinality
+and contention proof for CreateHousehold. Last-Owner, Account linking/unlinking,
+invitation consumption, and membership role mutation do not exist in this use
+case and remain gated under their later use cases; they do not keep Step 8 open.
+
 ## Step 9 — Put the evidence in CI
 
-**Status: PARTIALLY COMPLETE.** The intended workflow content exists, but its
-current untracked path is `github/workflows/backend-ci.yml`, not GitHub Actions'
-discoverable `.github/workflows/backend-ci.yml`. No clean hosted run is
-evidenced. In addition, the local format gate fails on existing whitespace,
-encoding, and final-newline findings.
+**Status: COMPLETE for the repository gate.** The workflow is discoverable at
+`.github/workflows/backend-ci.yml` and covers the pinned SDK/tool restore,
+solution restore, connected dependency audit, deterministic build, all tests,
+format verification, fresh PostgreSQL migration, and pending-model verification.
+The full local equivalent is green. A hosted run is **NOT VERIFIED** until the
+user-owned working-tree changes are committed and pushed.
 
 Add one backend workflow that runs SDK setup, connected restore/audit, build,
 Domain/Application tests, PostgreSQL integration tests, local EF tool restore,

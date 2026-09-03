@@ -13,10 +13,11 @@ separate from product research and generated evidence.
   slice exist in the current working tree.
 - ADR 0006 is Accepted; source, handler, mappings, migrations, and tests align
   on its core Account/Membership identity decision.
-- A 2026-09-02 full baseline passed 50/50 tests and EF reported no model drift.
+- A 2026-09-02 full baseline passed 57/57 tests with 0 build warnings and 0
+  build errors; formatting, dependency audit, fresh migration, and EF model
+  verification are green.
 - The authenticated product route and fake scheme are Testing-only; Production
-  Identity/resource authorization, a green format/CI gate, deployment, and the
-  frontend do not exist.
+  Identity/resource authorization, deployment, and the frontend do not exist.
 
 ## Target state
 

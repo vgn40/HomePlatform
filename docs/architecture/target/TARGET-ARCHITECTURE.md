@@ -18,9 +18,9 @@ At the inspected 2026-09-02 working-tree snapshot:
 
 - the solution has four production projects with the intended dependency
   direction;
-- API exposes health/readiness and Development OpenAPI. A Testing-only
+- API exposes health/readiness and Development/Testing OpenAPI. A Testing-only
   authenticated `POST /api/households` route is deliberately absent in
-  Production;
+  Production, and its generated contract proves 201/400/401;
 - Infrastructure registers the Npgsql DbContext, active Household mappings,
   and focused repository;
 - Domain implements the ADR 0006 core: stable MembershipId, nullable AccountId,
@@ -30,11 +30,12 @@ At the inspected 2026-09-02 working-tree snapshot:
 - two Household migrations exist and dotnet-ef 10.0.4 is pinned locally;
 - PostgreSQL/Testcontainers tests prove migration from zero, save/reload,
   actor-owned creation, loginless persistence, and scoped uniqueness;
-- restore/build and all 50 tests passed on 2026-09-02, and EF reported no
-  pending model changes;
-- formatting verification is not green, the workflow is not yet in GitHub's
-  discoverable `.github/workflows` location, and production Identity, resource
-  authorization, deployment, and frontend remain unimplemented.
+- restore/build and all 57 tests passed on 2026-09-02, including safe unexpected
+  error non-disclosure; dependency audit, formatting, fresh migration, and EF
+  model verification are green;
+- the backend workflow is in GitHub's discoverable `.github/workflows`
+  location; production Identity, resource authorization, deployment, and
+  frontend remain unimplemented.
 
 That is one working test-host vertical slice, not a production-ready Household
 or Identity implementation.

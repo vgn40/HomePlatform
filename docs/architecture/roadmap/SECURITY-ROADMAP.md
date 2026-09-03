@@ -17,10 +17,10 @@ follow-up work.
 
 | Check | Status | Current evidence |
 |---|---|---|
-| ProblemDetails/central exception middleware configured | PARTIAL | Api registers `AddProblemDetails` and `UseExceptionHandler`; expected invalid Household input maps to 400. Stable error codes/trace assertions and unexpected-provider non-disclosure tests are absent. |
-| Development OpenAPI restricted by environment | PARTIAL | OpenAPI is mapped only in Development, but the Household route is mapped only in Testing, so no HTTP-exposed document contains it and no document-generation test proves its declared responses. |
+| ProblemDetails/central exception middleware configured | PASS for Phase 1 | Api registers `AddProblemDetails` and `UseExceptionHandler`; expected invalid Household input maps to 400, and an unexpected repository exception produces a generic Problem Details 500 without internal/provider disclosure. Stable product error codes remain part of the later production contract. |
+| OpenAPI restricted by environment | PASS for Phase 1 | OpenAPI is mapped in Development and Testing; generated Testing OpenAPI proves the Testing-only Household route's 201/400/401 contract, while Production does not expose the route. |
 | PostgreSQL readiness without credential disclosure | PASS | `/ready` reports ready/unavailable only. |
-| Known NuGet vulnerability scan | HISTORICAL PASS / NOT REVERIFIED | the 2026-08-27 audit reported no known vulnerable direct/transitive packages; connected CI must refresh advisory data. |
+| Known NuGet vulnerability scan | PASS (2026-09-02) | connected NuGet audit reported no known vulnerable direct or transitive packages in any solution project; the workflow reruns the time-sensitive check. |
 | Authentication/account lifecycle | FAIL | not implemented. |
 | Authorization/resource checks | FAIL | not implemented. |
 | Trusted creator identity | PASS for Testing slice | command carries Name only; `ICurrentAccount` derives the actor from authenticated claims; anonymous/malformed and caller-supplied AccountId tests prove zero impersonation. |
@@ -29,7 +29,7 @@ follow-up work.
 | CORS policy | NOT VERIFIED / not required yet | no frontend/API cross-origin contract exists. Absence is safer than `AllowAnyOrigin`; configure exact origins only when Expo web exists. |
 | Secrets management | PARTIAL | disposable development credentials are tracked in example/development files; no production secret store/configuration exists. |
 | Logging redaction policy | FAIL | default logging exists; no explicit sensitive-data rules/tests. |
-| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, and Production 404; real Identity, IDOR, token, redaction, and unexpected-error disclosure tests are absent. |
+| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; real Identity, IDOR, token, and broader redaction tests remain later-phase work. |
 | Database least privilege/backups/restore | NOT VERIFIED | no deployed database or production roles exist. |
 
 Production currently maps only health/readiness; the product route exists only
@@ -335,9 +335,9 @@ Log event name, safe pseudonymous user/resource identifiers, request/trace ID, o
   host test proves 404/unmapped.
 - **PASS:** missing/malformed Testing-host Guid subjects receive 401 with zero
   rows.
-- **OPEN:** generated OpenAPI contract, stable ProblemDetails code/trace proof,
-  unexpected-error non-disclosure, connected dependency audit, green formatting,
-  and discoverable CI.
+- **PASS:** generated Testing OpenAPI contract, unexpected-error non-disclosure,
+  connected dependency audit, green formatting, and discoverable CI with a
+  green local equivalent. Hosted execution is not verified before commit/push.
 
 ### Phase 2 gate
 
