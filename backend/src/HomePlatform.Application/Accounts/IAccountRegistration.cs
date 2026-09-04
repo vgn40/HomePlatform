@@ -12,4 +12,3 @@ public sealed record AccountRegistrationResult(
     bool Succeeded,
     Guid? AccountId,
     IReadOnlyCollection<string> Errors);
-}
