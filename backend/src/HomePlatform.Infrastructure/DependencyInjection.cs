@@ -1,6 +1,8 @@
 using HomePlatform.Application.Households;
+using HomePlatform.Infrastructure.Identity;
 using HomePlatform.Infrastructure.Persistence;
 using HomePlatform.Infrastructure.Persistence.Repositories;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +27,10 @@ public static class DependencyInjection
 
         services.AddDbContext<HomePlatformDbContext>(
             options => options.UseNpgsql(connectionString));
+
+        services
+            .AddIdentityCore<ApplicationUser>()
+            .AddEntityFrameworkStores<HomePlatformDbContext>();
 
         services.AddScoped<
             IHouseholdRepository,

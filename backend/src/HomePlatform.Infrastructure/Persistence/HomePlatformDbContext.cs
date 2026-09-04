@@ -1,10 +1,12 @@
+using HomePlatform.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace HomePlatform.Infrastructure.Persistence;
 
 public sealed class HomePlatformDbContext(
     DbContextOptions<HomePlatformDbContext> options)
-    : DbContext(options)
+    : IdentityUserContext<ApplicationUser, Guid>(options)
 {
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
