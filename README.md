@@ -115,8 +115,9 @@ working tree before starting the next roadmap step.
 
 ## Migrations
 
-`InitialHousehold` and `LimitHouseholdNameLength` define the current Household
-schema. The repository pins dotnet-ef 10.0.4; Testcontainers applies migrations
-from zero, and the 2026-09-02 model check reported no pending changes. See the
+`InitialHousehold` and `LimitHouseholdNameLength` define the Household schema;
+`AddIdentityPersistence` adds ASP.NET Core Identity persistence. The repository
+pins dotnet-ef 10.0.11; Testcontainers applies migrations from zero, and the
+2026-09-04 model check reported no pending changes. See the
 [current next steps](docs/architecture/roadmap/NEXT-STEPS.md) before extending
 the schema.

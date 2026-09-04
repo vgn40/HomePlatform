@@ -27,14 +27,15 @@ At the inspected 2026-09-02 working-tree snapshot:
   Owner/Member/Guest, loginless members, and scoped duplicate prevention;
 - Application implements a Name-only CreateHousehold use case and obtains the
   actor through `ICurrentAccount`;
-- two Household migrations exist and dotnet-ef 10.0.4 is pinned locally;
+- two Household migrations and an Identity-persistence migration exist, and
+  dotnet-ef 10.0.11 is pinned locally;
 - PostgreSQL/Testcontainers tests prove migration from zero, save/reload,
   actor-owned creation, loginless persistence, and scoped uniqueness;
 - restore/build and all 57 tests passed on 2026-09-02, including safe unexpected
   error non-disclosure; dependency audit, formatting, fresh migration, and EF
   model verification are green;
 - the backend workflow is in GitHub's discoverable `.github/workflows`
-  location; production Identity, resource authorization, deployment, and
+  location; production authentication, resource authorization, deployment, and
   frontend remain unimplemented.
 
 That is one working test-host vertical slice, not a production-ready Household
