@@ -1,7 +1,7 @@
 # HomePlatform Six-Month Masterplan
 
 Status: **Authoritative strategic roadmap**  
-Last reviewed: **2026-09-02**
+Last reviewed: **2026-09-07**
 Planning horizon: approximately 26 weeks
 
 ## Executive direction
@@ -15,30 +15,31 @@ transactions, time behavior, tests, and operations can be defended.
 **Phase 1 — CreateHousehold evidence and quality gates is complete.** ADR 0006
 is Accepted, the first durable Household schema exists, and the Testing-only
 vertical slice passes against PostgreSQL. Generated OpenAPI and unexpected-error
-non-disclosure are proven, formatting is green, and a discoverable backend
-workflow has a green local equivalent. Phase 2 Identity has not started.
+non-disclosure were proven, formatting was green, and a discoverable backend
+workflow had a green local equivalent at the Phase 1 snapshot. Phase 2 has
+started: roleless Identity persistence is committed and Account Registration is
+implemented and verified. The complete Phase 2 exit gate remains open.
 
 For the next executable actions, use [NEXT-STEPS.md](NEXT-STEPS.md). It is the
 only current implementation-order document.
 
 ## Current state
 
-The repository has a .NET 10 layered foundation, health/readiness, active
-Household persistence, two migrations, and an authenticated Testing-only
-CreateHousehold endpoint. Server-derived actor identity, 201/400/401 behavior,
-Production non-exposure, migration from zero, save/reload, loginless members,
-scoped Account-link uniqueness, exactly-one-save behavior, cancellation with zero
-rows, and transaction rollback with no partial aggregate are covered by
-PostgreSQL/Testcontainers. The Application boundary returns explicit expected
-outcomes while unexpected repository failures propagate. A 2026-09-02
-restore/build/test run passed 57/57 tests with 0 build warnings and 0 build
-errors. Dependency audit, formatting verification, migration from zero, and EF
-model verification also passed.
+As of 2026-09-07, CreateHousehold retains its Testing-only
+actor, contract, and PostgreSQL persistence tests. Identity persistence adds the
+third migration, and registration is committed in `e2fca98`, mapped anonymously in all
+environments. Real sign-in/session authentication, Membership authorization,
+deployment, and frontend remain unfinished.
 
-Production Identity, Membership resource authorization, deployment, and the
-frontend remain absent. The backend workflow is discoverable under
-`.github/workflows`; a hosted run remains **NOT VERIFIED** until the user-owned
-changes are committed and pushed.
+The verified registration baseline is 72/72 tests: Domain 25, Application 11,
+Integration 36. The [repo audit](../DDD-ARCHITECTURE-AUDIT.md) preserves its
+historical build/tests and records the registration follow-up. The 57-test Phase 1 run from 2026-09-02 is historical; current
+hosted CI execution, formatting, dependency vulnerability status, and deployment
+are not inferred from that run.
+
+Phases sequence use cases and release gates. They do not require one new bounded
+context or architecture pattern per phase. Use the target architecture's
+[evolution triggers](../target/TARGET-ARCHITECTURE.md#evolution-policy-now-next-later-if-needed).
 
 ## Target beta scope
 
@@ -116,12 +117,15 @@ Goal: replace test authentication with a supported first-party Identity flow.
 
 ### Delivery
 
-- add ASP.NET Core Identity in Infrastructure with Guid Account identity;
+- retain the implemented roleless ASP.NET Core Identity store and Guid identity;
 - choose and record one native bearer or browser-cookie mode;
-- implement registration, confirmation, sign-in, refresh/session, recovery,
-  revocation, and normalized-email uniqueness behavior;
-- decide the fate of the current Domain `User`; do not duplicate credentials;
-- implement the approved Account-to-Membership link semantics;
+- retain implemented registration and its UserNameIndex duplicate-race guard;
+- implement confirmation, sign-in, refresh/session, recovery, revocation, and
+  the independent normalized-email lifecycle policy from the security roadmap;
+- preserve the removal of Domain User; do not invent an Account aggregate or
+  profile without independent business behavior;
+- define Account validation and verified-link semantics for the Phase 3 workflow;
+  implement linking once under the collaboration gate, not twice across phases;
 - prove migration upgrades from the Phase 1 schema and data strategy;
 - normalize public auth failures while preserving protected telemetry.
 

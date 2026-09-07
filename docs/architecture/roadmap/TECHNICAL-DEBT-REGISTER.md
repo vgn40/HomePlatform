@@ -1,7 +1,7 @@
 # HomePlatform Technical-Debt Register
 
 Status: **Authoritative debt register**  
-Last reviewed: **2026-09-02**
+Last reviewed: **2026-09-07**
 
 Debt is a conscious correctness or maintainability obligation with a trigger
 and exit gate. Unbuilt product scope is not automatically technical debt.
@@ -18,11 +18,36 @@ and exit gate. Unbuilt product scope is not automatically technical debt.
 | ID | Priority | Current evidence | Required action | Exit evidence |
 |---|---|---|---|---|
 | TD-005 | P1 | MembershipId, nullable AccountId, loginless membership, aggregate/database scoped uniqueness, and PostgreSQL round-trip are proven; link/unlink and lifecycle behavior do not exist | implement only explicit authorized link/unlink/lifecycle use cases when their roadmap gate is reached | Domain + PostgreSQL identity/cardinality/concurrency tests pass |
-| TD-006 | P1 | Domain `User` overlaps future ASP.NET Core Identity ownership | remove/rename/justify it; never duplicate credentials | Phase 2 model and migration have one credential authority |
-| TD-010 | P1 | a fake-authenticated Testing-only CreateHousehold endpoint exists and Production is 404; production Identity, Membership resource authorization, and IDOR coverage remain absent | add real Identity in Phase 2, then Account-to-Membership authorization and IDOR proof in Phase 3 | security roadmap phase gates pass |
+| TD-010 | P1 | a fake-authenticated Testing-only CreateHousehold endpoint exists and Production is 404; Identity persistence and registration work exist, but real authentication, Account-reference validation, Membership authorization, and IDOR coverage remain absent | complete real authentication and Account integrity in Phase 2, then Account-to-Membership authorization and IDOR proof in Phase 3 | security roadmap phase gates pass |
 | TD-011 | P1 | last-Owner, Account linking, invitation consumption, and future same-resource edits lack race proof | add database constraints/version/conditional operations and barrier tests | real PostgreSQL proves one winner/valid invariant |
 | TD-013 | P1 | no production container/deploy/observability/backup/restore/export/deletion proof | complete Phase 6 operational and trust work | public-beta gate is evidenced, not asserted |
 | TD-014 | P1 | recurrence/time behavior is undefined | decide IANA zone, DST, missed/edit-series, idempotent occurrence rules | Phase 4 deterministic + PostgreSQL tests pass |
+
+### Findings from the 2026-09-06 audit
+
+| ID | Priority | Current evidence | Required action | Exit evidence |
+|---|---|---|---|---|
+| TD-018 | P1 | two dependency tests blacklist only outer HomePlatform assembly names | also guard forbidden frameworks/packages, direct project metadata, and Infrastructure-to-API direction | tests reject representative forbidden references without depending on emitted assembly use |
+
+See the [audit](../DDD-ARCHITECTURE-AUDIT.md) for severity, exact locations,
+verification limits, and lower-priority follow-ups. TD-018 remains open;
+the original documentation audit did not change production or test source.
+
+## Closed with registration in e2fca98 — 2026-09-07
+
+- **TD-016:** required/format/bounded input validation and recognized UserNameIndex
+  duplicate-race translation are implemented. HTTP/PostgreSQL tests prove one
+  201, one 400 EmailAlreadyExists, and one row; unrelated constraints remain
+  safe 500. The independent NormalizedEmail lifecycle policy remains a security
+  roadmap gate; no migration or Identity option change is claimed.
+- **TD-017:** typed Application errors, ProblemDetails, RegisterAccountResponse,
+  and generated OpenAPI 201/400 contracts are implemented and covered by tests.
+  Solution baseline: Domain 25, Application 11, Integration 36; 72/72 passed.
+
+## Closed with 2026-09-06 source evidence
+
+- **TD-006:** Domain User was removed; ApplicationUser/Identity in Infrastructure
+  is the only credential store. No Account aggregate is justified today.
 
 ## Accepted shortcuts
 
@@ -84,7 +109,7 @@ Do not introduce these as “cleanup” without their target-architecture trigge
 - **TD-012:** the reviewed workflow now lives under `.github/workflows`; the
   historical indentation, trailing-whitespace, final-newline, and migration BOM
   findings were repaired mechanically; the full local CI equivalent is green.
-  Hosted execution remains not verified until commit and push.
+  Current hosted execution remains NOT VERIFIED by this audit.
 - **TD-015:** Testing exposes generated OpenAPI containing the Testing-only
   CreateHousehold operation with 201/400/401 and the response schema, while
   Production continues not to expose the product route.

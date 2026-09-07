@@ -1,7 +1,7 @@
 # HomePlatform Domain Model
 
 Status: **Authoritative current-versus-target DDD description**  
-Last reviewed: **2026-09-02**
+Last reviewed: **2026-09-06**
 
 ## Current implemented state
 
@@ -12,9 +12,9 @@ implemented and persisted, while membership lifecycle and authorization remain:
 |---|---|---|
 | Household | Guid identity, trimmed Name bounded to 100 characters, UTC timestamps, private member list | aggregate root for the implemented CreateHousehold slice; creates one Account-linked Owner Membership |
 | HouseholdMember | generated `MembershipId`, optional `AccountId`, HouseholdRole | implemented entity inside Household; persisted with scoped uniqueness; no link/unlink lifecycle behavior |
-| HouseholdRole | Owner, Member, Guest | accepted authorization vocabulary; resource enforcement and role transitions incomplete |
-| User | Guid, username, email | ownership is unclear; must not duplicate ASP.NET Core Identity credentials |
-| Result | success/failure primitive | small Domain helper, not an HTTP contract |
+| HouseholdRole | Owner, Member, Guest enum | vocabulary, not a value object or domain service; resource enforcement and role transitions incomplete |
+| Account | Guid reference only in Household Domain | credentials belong to Infrastructure ApplicationUser/Identity; the former Domain User has been removed |
+| Result | success/failure primitive | ordinary result class; neither entity, value object, nor domain service |
 
 The current source, handler, mappings, migrations, and tests agree on the core
 Account/Membership identity decision in accepted ADR 0006. PostgreSQL tests
@@ -47,6 +47,16 @@ Partially implemented or not yet proven:
 - concurrency tokens and stable conflict mapping;
 - production resource authorization. The trusted actor boundary is proven only
   in the Testing-only CreateHousehold route.
+
+The private constructors are EF materialization hooks, not public ways to
+construct invalid entities. Mappings preserve encapsulation, but EF and direct
+database writes can bypass public constructor checks. The database has no role,
+Owner-presence, nonblank-name, or Account-existence checks. There is no public
+child mutation API; future membership writes must remain aggregate-owned.
+
+Current maturity is a domain model with dependency inversion and one explicit
+aggregate (Level 2 overall, early Level 3 in Household). More contexts, events,
+and distribution would not by themselves improve model quality.
 
 ## Ubiquitous language
 
@@ -85,11 +95,10 @@ Households
 ```
 
 - one Account may link to Memberships in several Households;
-- one active linked Membership per `(HouseholdId, AccountId)` is the implemented
-  scoped uniqueness rule for the current schema;
-- loginless Membership can later link an Account without changing
-  `MembershipId`, assignments, or history;
-- Account linking/unlinking is an explicit verified use case;
+- one non-null Account link per `(HouseholdId, AccountId)` is enforced; the
+  current schema has no active/inactive state or filtered index;
+- the target link/unlink use case must preserve MembershipId, assignments,
+  and history; that workflow is not implemented;
 - a global Person/Profile is not introduced without independent behavior and
   cross-household ownership rules.
 
@@ -131,8 +140,9 @@ when their behavior pays for the type:
   rule spanning concepts that fits no entity/value object.
 - **Domain events:** not yet justified. Add only when one committed fact has
   multiple independent reactions and direct orchestration becomes coupled.
-- **Outbox/broker:** not justified by DDD alone. Require durable post-commit work
-  and prove the failure/retry need first.
+- **Integration events, outbox, and broker:** separate decisions with separate
+  triggers; use the [evolution policy](TARGET-ARCHITECTURE.md#evolution-policy-now-next-later-if-needed).
+  Domain events alone imply none of them.
 
 ## Required invariant evidence
 

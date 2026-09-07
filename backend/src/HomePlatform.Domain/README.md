@@ -1,7 +1,10 @@
 # HomePlatform.Domain
 
 Domain is the framework-independent business core. It currently contains early
-Household, HouseholdMember, HouseholdRole, User, and Result concepts.
+Household and HouseholdMember entities, the HouseholdRole enum, and a small
+Result helper. The former Domain User has been removed; Account credentials
+belong to ASP.NET Core Identity in Infrastructure. No Account aggregate, explicit
+value objects, Domain Services, or Domain Events are currently justified.
 
 Accepted
 [ADR 0006](../../../docs/architecture/adr/0006-separate-account-and-household-membership-identity.md)

@@ -6,18 +6,20 @@ separate from product research and generated evidence.
 
 ## Current state
 
-- One ASP.NET Core modular-monolith foundation with Domain, Application,
-  Infrastructure, and API projects.
-- Health/readiness and PostgreSQL connectivity exist.
-- Household, HouseholdMember, roles, and a PostgreSQL-backed CreateHousehold
-  slice exist in the current working tree.
-- ADR 0006 is Accepted; source, handler, mappings, migrations, and tests align
-  on its core Account/Membership identity decision.
-- A 2026-09-02 full baseline passed 57/57 tests with 0 build warnings and 0
-  build errors; formatting, dependency audit, fresh migration, and EF model
-  verification are green.
-- The authenticated product route and fake scheme are Testing-only; Production
-  Identity/resource authorization, deployment, and the frontend do not exist.
+- Four production layer assemblies with the intended project dependencies.
+- One small Household aggregate and a PostgreSQL-backed, authenticated
+  Testing-only CreateHousehold slice implement the core of accepted ADR 0006.
+- Infrastructure owns roleless Identity persistence. Account Registration is
+  implemented and committed in `e2fca98`, with an anonymous endpoint in every
+  environment, including Production; the verified solution baseline is 72/72
+  tests (Domain 25, Application 11, Integration 36).
+- Sign-in/session authentication, Household resource authorization, deployment,
+  and frontend remain incomplete. Registration does not complete those gates.
+- Tactical DDD is present in Household; multiple implemented bounded contexts
+  and strategic DDD are not established.
+
+See the [2026-09-06 DDD/Clean Architecture audit](DDD-ARCHITECTURE-AUDIT.md)
+for historical source evidence and the registration completion follow-up.
 
 ## Target state
 
@@ -58,7 +60,8 @@ historical planning baselines, matrices, and notebooks live in the
 - Domain depends on no framework or outer project.
 - Application depends on Domain, not Infrastructure or API.
 - Infrastructure implements Application ports and owns technical details.
-- API is the composition root and never becomes the data-access layer.
+- API is the composition root. Product endpoints use Application; the current
+  DbContext-backed `/ready` connectivity probe is an operational exception.
 - Actor identity comes from trusted server authentication, never request data.
 - Household access is resource authorization through a current Membership.
 - Use real PostgreSQL/Testcontainers for persistence and concurrency proof.

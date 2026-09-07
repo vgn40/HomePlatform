@@ -1,20 +1,22 @@
 # HomePlatform Context Map
 
 Status: **Authoritative context description**  
-Last reviewed: **2026-09-02**
+Last reviewed: **2026-09-07**
 
 ## Current implemented state
 
 The codebase currently has layered projects and one implemented Households
 slice for creating and persisting a Household with its initial Owner
 Membership. It does not yet have a complete Household lifecycle or fully
-enforced bounded contexts. Production Identity & Access, Tasks & Routines,
-Shopping, Events, Today, Notifications, and Calendar Integration are not
-implemented. Folder names alone are not bounded-context evidence.
+enforced bounded contexts. Roleless Identity persistence and implemented Account
+Registration exist (`e2fca98`; verified solution baseline: 72/72 tests). Sign-in/session authentication and a complete Identity lifecycle remain
+unimplemented, as do Tasks & Routines, Shopping, Events, Today, Notifications,
+and Calendar Integration. Folder names alone are not bounded-context evidence.
 
-## Accepted target map
+## Candidate target boundaries
 
-The following map is target language and ownership. Account/Membership
+The following map proposes language and ownership; it does not pre-approve one
+bounded context for every feature area. Account/Membership
 cardinality follows accepted
 [ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md).
 
@@ -46,7 +48,7 @@ Application orchestration -> email, push, and calendar adapters when triggered
 | Boundary | Status | Owns | Does not own |
 |---|---|---|---|
 | Households | **CURRENT, partial** | Household creation, Membership identity/roles, loginless members, scoped Account-link uniqueness | credentials, tasks, lists, events |
-| Identity & Access | **PROPOSED** | Account credentials, authentication/session/recovery lifecycle | household role or resource access |
+| Identity & Access | **PARTIAL supporting capability** | Account credentials, authentication/session/recovery lifecycle | household role or resource access |
 | Households target | **PARTIAL** | stable Membership implemented; invitations, last-Owner lifecycle, verified linking, and Household authorization remain | passwords, unrelated feature state |
 | Tasks & Routines | **PROPOSED** | task lifecycle, assignment, recurrence and occurrence identity | membership source of truth |
 | Shopping | **PROPOSED** | lists/items and their transitions | catalog, recipes, membership |
@@ -63,9 +65,10 @@ Application orchestration -> email, push, and calendar adapters when triggered
 Language: Account, credential, authentication subject, confirmation, session,
 refresh, lockout, recovery, revocation.
 
-ASP.NET Core Identity remains Infrastructure-owned. Application receives only a
-trusted Account identity through a narrow port. No household roles live in
-Identity.
+ASP.NET Core Identity remains Infrastructure-owned. Application uses
+ICurrentAccount for actor identity and IAccountRegistration for registration
+input/results; no Identity framework types cross those ports. No household roles
+live in Identity.
 
 ### Households
 
@@ -122,6 +125,23 @@ event, and shopping projections. It is not an aggregate or default table.
 5. One use case normally owns one commit.
 6. Introduce supporting contexts only when their independent language,
    lifecycle, and invariants are demonstrated.
+
+## When a module becomes a bounded context
+
+Promote a candidate only when it has a coherent ubiquitous language, its own
+invariants and model, an independent lifecycle, an explicit ownership boundary,
+and distinct reasons to change. Document where the same term has a different
+meaning and how contracts translate it. A feature folder, table, or endpoint
+alone meets none of these criteria.
+
+Currently Households is the one small product-domain model; Identity is a
+separate credential-owning supporting capability. This is useful separation,
+but does not establish several mature implemented bounded contexts. Tasks,
+Shopping, and internal Calendar may remain modules in one coordination context
+until their models diverge. Today is a query surface, not a bounded context by
+default. Notifications, finances, and home automation are future candidates,
+not mandatory contexts. Keep the modular monolith even if contexts emerge;
+service extraction requires an additional deployment/scaling/ownership need.
 
 ## Later candidates
 

@@ -13,18 +13,19 @@ and generated research evidence.
 3. [Next steps](architecture/roadmap/NEXT-STEPS.md) — the current executable
    order and stop-gate.
 
-Current implementation remains early but includes one complete Testing-host
-runtime path: CreateHousehold persists an authenticated actor's initial Owner
-Membership to PostgreSQL. ADR 0006 is Accepted and the first migrations exist.
-Phase 1 quality and local CI-equivalent gates are complete. Production
-Identity/resource authorization and the frontend remain incomplete.
+Current implementation includes the Testing-only CreateHousehold path and
+roleless Identity persistence. Account Registration is implemented and committed in
+`e2fca98`, with an anonymous endpoint in every environment and a verified
+72/72-test baseline (Domain 25, Application 11, Integration 36). Real authentication, Household
+resource authorization, and frontend remain incomplete. See the
+[2026-09-06 repo audit](architecture/DDD-ARCHITECTURE-AUDIT.md) and its registration follow-up for evidence; historical Phase 1 checks do not certify the registration slice.
 
 ## Authoritative documents
 
 | Topic | Authority |
 |---|---|
 | Architecture target | [TARGET-ARCHITECTURE.md](architecture/target/TARGET-ARCHITECTURE.md) |
-| Bounded contexts | [CONTEXT-MAP.md](architecture/target/CONTEXT-MAP.md) |
+| Candidate context boundaries | [CONTEXT-MAP.md](architecture/target/CONTEXT-MAP.md) |
 | Domain model and language | [DOMAIN-MODEL.md](architecture/target/DOMAIN-MODEL.md) |
 | Architecture decisions | [ADR index](architecture/adr/README.md) |
 | Strategic roadmap | [HOMEPLATFORM-6-MONTH-MASTERPLAN.md](architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md) |
@@ -36,6 +37,7 @@ Identity/resource authorization and the frontend remain incomplete.
 ## Architecture
 
 - [Architecture overview](architecture/README.md)
+- [DDD/Clean Architecture audit — 2026-09-06](architecture/DDD-ARCHITECTURE-AUDIT.md)
 - [Architecture decision records](architecture/adr/README.md)
 - [Target architecture](architecture/target/TARGET-ARCHITECTURE.md)
 - [Context map](architecture/target/CONTEXT-MAP.md)

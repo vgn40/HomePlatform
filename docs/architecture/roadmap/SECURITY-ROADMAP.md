@@ -1,7 +1,7 @@
 # HomePlatform Security Roadmap
 
 Status: **Authoritative security plan**  
-Last reviewed: **2026-09-02**
+Last reviewed: **2026-09-07**
 Scope: authentication, authorization, API/data protection, secure operations,
 and blocking verification gates for the six-month plan  
 Rule: authentication proves Account identity; authorization decides what that
@@ -21,20 +21,26 @@ follow-up work.
 | OpenAPI restricted by environment | PASS for Phase 1 | OpenAPI is mapped in Development and Testing; generated Testing OpenAPI proves the Testing-only Household route's 201/400/401 contract, while Production does not expose the route. |
 | PostgreSQL readiness without credential disclosure | PASS | `/ready` reports ready/unavailable only. |
 | Known NuGet vulnerability scan | PASS (2026-09-02) | connected NuGet audit reported no known vulnerable direct or transitive packages in any solution project; the workflow reruns the time-sensitive check. |
-| Authentication/account lifecycle | FAIL | not implemented. |
+| Authentication/account lifecycle | PARTIAL; release gate OPEN | roleless Identity persistence and implemented/verified registration exist; sign-in/session, confirmation, and recovery are not implemented. |
 | Authorization/resource checks | FAIL | not implemented. |
 | Trusted creator identity | PASS for Testing slice | command carries Name only; `ICurrentAccount` derives the actor from authenticated claims; anonymous/malformed and caller-supplied AccountId tests prove zero impersonation. |
-| Rate limiting/lockout policy | FAIL | not implemented. |
+| Rate limiting/lockout policy | INCOMPLETE | Identity default lockout fields/options exist, but there is no sign-in flow with lockout enforcement or endpoint rate limiting. |
 | HTTPS/reverse-proxy production policy | FAIL | not implemented; local launch is HTTP. |
 | CORS policy | NOT VERIFIED / not required yet | no frontend/API cross-origin contract exists. Absence is safer than `AllowAnyOrigin`; configure exact origins only when Expo web exists. |
 | Secrets management | PARTIAL | disposable development credentials are tracked in example/development files; no production secret store/configuration exists. |
 | Logging redaction policy | FAIL | default logging exists; no explicit sensitive-data rules/tests. |
-| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; real Identity, IDOR, token, and broader redaction tests remain later-phase work. |
+| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; registration tests now exercise UserManager and PostgreSQL; real-authentication, IDOR, token, and broader redaction proof remain incomplete. |
 | Database least privilege/backups/restore | NOT VERIFIED | no deployed database or production roles exist. |
 
-Production currently maps only health/readiness; the product route exists only
-in the Testing environment. The security stop-gate is to keep it absent from
-Production until real Identity and trusted caller handling are ready.
+The live Program also maps anonymous `POST /api/accounts/register` in Production;
+only the Household route is Testing-only. This is source-level exposure, not
+evidence of a public deployment. Registration input validation, recognized
+UserNameIndex duplicate-race mapping, typed errors, and OpenAPI are implemented
+and verified in `e2fca98` (72/72 solution tests). Release gates, real authentication,
+confirmation/recovery/revocation, and the independent email lifecycle policy
+remain open; see the [audit follow-up](../DDD-ARCHITECTURE-AUDIT.md). Keep the
+Household route absent from Production until real authentication and trusted
+caller handling are ready.
 
 ## Trust model
 
@@ -79,8 +85,9 @@ unauthenticated outcome mapped to 401 with zero mutation. Map the endpoint only
 in the `Testing` environment, whose integration host installs a real default
 authenticate/challenge scheme; prove a Production host returns 404 because the
 route is absent. Phase 2 activates the same adapter under Identity. HTTP
-requests and commands never select their actor, and health endpoints are
-explicitly anonymous when a fallback policy exists.
+requests and commands never select their actor, and health endpoints must be
+explicitly anonymous when a fallback policy is introduced. They currently have
+no AllowAnonymous metadata and there is no production fallback policy.
 
 ## Authentication architecture decision
 
@@ -89,12 +96,12 @@ explicitly anonymous when a fallback policy exists.
 Use ASP.NET Core Identity in Infrastructure with PostgreSQL EF stores:
 
 - `ApplicationUser : IdentityUser<Guid>` belongs in Infrastructure/Identity.
-- the existing `HomePlatformDbContext` becomes roleless `IdentityUserContext<ApplicationUser, Guid>` unless a real global-role need emerges; call `base.OnModelCreating(builder)` before applying product configurations so one database and migration chain remain.
+- the implemented `HomePlatformDbContext` is roleless `IdentityUserContext<ApplicationUser, Guid>` unless a real global-role need emerges; call `base.OnModelCreating(builder)` before applying product configurations so one database and migration chain remain.
 - use Identity's `UserManager`, `SignInManager`, password hasher, security stamps, confirmation/reset tokens, lockout, and API endpoints.
 - Domain does not reference Identity and never owns password/security/token fields.
-- do not persist the current Domain `User` as a second credential source.
-  Retain/rename it to a Profile only when concrete behavior and ownership are
-  approved; do not silently equate Profile, Account, and Membership identity.
+- Domain User has been removed. Keep ApplicationUser/Identity as the credential
+  authority; create a Profile only when concrete behavior and ownership justify it.
+  Do not invent an Account aggregate or equate Account and Membership identity.
 
 For the first-party React Native/Expo client, the default is ASP.NET Core Identity's built-in opaque bearer access/refresh-token mode. Select exactly one public authentication mode: do not expose an unchanged `MapIdentityApi` cookie switch, reject `useCookies=true` (or map a deliberately bearer-only Identity-backed boundary), and remove the Phase 1 fake scheme from the Phase 2 app/test host. If the ADR selects cookies instead, the Browser branch becomes Phase 2 blocking work. Microsoft documents that these tokens are proprietary, not JWTs, and intended for simple first-party clients that cannot use cookies—not as a general OAuth/OIDC token server. [Identity API guidance](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0)
 
@@ -137,7 +144,7 @@ The category is the latest acceptable gate. Work can start earlier.
 |---|---|---:|---|
 | ASP.NET Core Identity | BEFORE MULTI-USER FEATURES | 2 | Identity EF store/migrations exist; Domain remains Identity-free. |
 | Password hashing | BEFORE MULTI-USER FEATURES | 2 | passwords pass only through Identity/UserManager; no reversible/custom storage. |
-| Account registration | BEFORE MULTI-USER FEATURES | 2 | `RequireUniqueEmail`, named unique filtered PostgreSQL index on NormalizedEmail, recognized `23505` mapping, and concurrent-registration proof. |
+| Account registration / email lifecycle | BEFORE MULTI-USER FEATURES | 2 | Current registration is verified through UserName=email and unique UserNameIndex, including controlled concurrent duplicates. The planned independent email policy (`RequireUniqueEmail` and a named unique filtered NormalizedEmail index) remains unimplemented; decide migration/existing-data and future email/username-change semantics before that lifecycle is exposed. |
 | Login | BEFORE MULTI-USER FEATURES | 2 | identical public 401 shape for unknown/wrong/unconfirmed/locked failures, lockout enabled, one auth mode, and framework-issued credentials. |
 | Email verification | BEFORE MULTI-USER FEATURES | 2 | expiring confirmation flow, resend throttle, and confirmed identity required before invitations/collaboration. |
 | Password reset | BEFORE PUBLIC BETA | 2/6 | generic forgot-password response, expiring one-time Identity token, reset invalidates existing sessions within documented semantics. |
@@ -337,7 +344,7 @@ Log event name, safe pseudonymous user/resource identifiers, request/trace ID, o
   rows.
 - **PASS:** generated Testing OpenAPI contract, unexpected-error non-disclosure,
   connected dependency audit, green formatting, and discoverable CI with a
-  green local equivalent. Hosted execution is not verified before commit/push.
+  green local equivalent. Current hosted execution is NOT VERIFIED by this audit.
 
 ### Phase 2 gate
 

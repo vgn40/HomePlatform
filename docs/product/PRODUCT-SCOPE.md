@@ -1,7 +1,7 @@
 # HomePlatform Product Scope
 
 Status: **Authoritative product scope for the six-month beta**  
-Last reviewed: **2026-08-29**
+Last reviewed: **2026-09-07**
 
 ## Product thesis
 
@@ -13,9 +13,11 @@ and honest lifecycle behavior.
 
 ## Current implemented state
 
-No end-to-end user-facing product feature exists. The repository contains a
-backend foundation, health/readiness, early Household code, and an incomplete
-CreateHousehold slice. No frontend exists.
+The repository has a complete Testing-only CreateHousehold path, roleless
+Identity persistence, and implemented Account Registration (committed in
+`e2fca98`; verified solution baseline: 72/72 tests). There is no complete
+user-facing authenticated Household experience or frontend yet. Registration
+alone does not establish sign-in, verified identity, or Household authorization.
 
 ## Six-month beta scope
 
@@ -24,8 +26,8 @@ CreateHousehold slice. No frontend exists.
 | Account lifecycle | register, verify, sign in, recover, revoke | trusted framework identity; no custom auth protocol |
 | Household | create, rename, list | protected collaboration boundary |
 | Membership | Owner/Member/Guest, invite, join, leave/remove/transfer | role is authority, not family relationship |
-| Loginless participant | model support if ADR 0006 is accepted | identity flexibility now; specialized child UI later |
-| Tasks | create, assign, complete/reopen, history | assignment by Membership identity if approved |
+| Loginless participant | model support implemented under accepted ADR 0006 | identity flexibility now; specialized child UI later |
+| Tasks | create, assign, complete/reopen, history | assignment by Membership identity under ADR 0006 |
 | Routines | deliberately limited recurrence | timezone/DST/idempotency before breadth |
 | Shopping | shared list and item transitions | one active list initially, not permanent contract |
 | Today | authorized daily read composition | no write aggregate or GET side effects |
@@ -35,7 +37,7 @@ CreateHousehold slice. No frontend exists.
 ## Structural product decisions
 
 - Account authentication and Household participation are different lifecycles;
-  their proposed separation is under review in
+  their separation is accepted in
   [ADR 0006](../architecture/adr/0006-separate-account-and-household-membership-identity.md).
 - One Account may need Memberships in several Households.
 - Owner/Member/Guest express authorization. Parent/Child/Partner/Grandparent

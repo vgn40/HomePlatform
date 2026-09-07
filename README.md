@@ -5,13 +5,15 @@ HomePlatform is an early-stage household coordination platform and a pragmatic
 household membership, tasks and routines, shopping, events, and a read-only
 Today view.
 
-> **Current status:** the backend foundation and a PostgreSQL-backed,
-> authenticated Testing-only `CreateHousehold` slice exist. The 2026-09-02
-> Phase 1 baseline passed 57/57 tests with 0 build warnings and 0 build errors,
-> plus formatting, vulnerability, fresh-migration, and EF model verification.
-> Production Identity, resource authorization, and the frontend are not
-> implemented. See the
-> [current next steps](docs/architecture/roadmap/NEXT-STEPS.md) for the live gate.
+> **Current status (2026-09-07):** PostgreSQL-backed CreateHousehold exists behind
+> a Testing-only authenticated route. Roleless ASP.NET Core Identity persistence
+> and Account Registration are implemented; registration is committed in `e2fca98` and maps an
+> anonymous endpoint in every environment. Real sign-in/session authentication,
+> Household resource authorization, deployment, and frontend remain incomplete.
+> The [DDD/Clean Architecture audit](docs/architecture/DDD-ARCHITECTURE-AUDIT.md)
+> preserves historical findings and records the registration follow-up; [next steps](docs/architecture/roadmap/NEXT-STEPS.md)
+> owns the executable order. The verified registration baseline is 72/72 tests
+> (Domain 25, Application 11, Integration 36).
 
 ## Technology
 
@@ -27,9 +29,10 @@ Today view.
 HomePlatform targets a modular monolith with four production projects:
 
 ```text
-HomePlatform.Api -> HomePlatform.Application -> HomePlatform.Domain
-        |                    ^
-        +-> HomePlatform.Infrastructure -----+
+Domain         -> no project/package references
+Application    -> Domain
+Infrastructure -> Application + Domain
+Api            -> Application + Infrastructure
 ```
 
 Domain remains framework-independent. Application owns explicit use cases and
