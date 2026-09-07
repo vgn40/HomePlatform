@@ -7,8 +7,3 @@ public interface IAccountRegistration
         string password,
         CancellationToken cancellationToken);
 }
-
-public sealed record AccountRegistrationResult(
-    bool Succeeded,
-    Guid? AccountId,
-    IReadOnlyCollection<string> Errors);

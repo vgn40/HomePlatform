@@ -1,14 +1,17 @@
 using HomePlatform.Api;
 using HomePlatform.Api.Households;
 using HomePlatform.Api.Identity;
-using HomePlatform.Application.Households.CreateHousehold;
+using HomePlatform.Application;
 using HomePlatform.Application.Identity;
 using HomePlatform.Infrastructure;
+using HomePlatform.Api.Accounts;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+
+builder.Services.AddApplication();
 
 builder.Services.AddInfrastructure(
     builder.Configuration);
@@ -22,14 +25,13 @@ builder.Services.AddScoped<
     ICurrentAccount,
     HttpCurrentAccount>();
 
-builder.Services.AddScoped<CreateHouseholdHandler>();
-
 var app = builder.Build();
 
 app.UseExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapAccountEndpoints();
 
 if (app.Environment.IsDevelopment()
     || app.Environment.IsEnvironment("Testing"))

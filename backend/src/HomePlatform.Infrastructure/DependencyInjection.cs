@@ -1,3 +1,4 @@
+using HomePlatform.Application.Accounts;
 using HomePlatform.Application.Households;
 using HomePlatform.Infrastructure.Identity;
 using HomePlatform.Infrastructure.Persistence;
@@ -35,6 +36,10 @@ public static class DependencyInjection
         services.AddScoped<
             IHouseholdRepository,
             HouseholdRepository>();
+
+        services.AddScoped<
+            IAccountRegistration,
+            IdentityAccountRegistration>();
 
         return services;
     }

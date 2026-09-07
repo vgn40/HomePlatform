@@ -6,7 +6,7 @@ namespace HomePlatform.IntegrationTests;
 public sealed class OpenApiContractTests
 {
     [Fact]
-    public async Task Testing_open_api_describes_create_household()
+    public async Task Testing_open_api_describes_create_household_and_register_account()
     {
         await using var factory = new HomePlatformApiFactory(
             "Host=127.0.0.1;Port=1;Database=homeplatform;" +
@@ -49,5 +49,35 @@ public sealed class OpenApiContractTests
         Assert.EndsWith(
             "/CreateHouseholdResponse",
             createdSchemaReference);
+
+        var registration = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/accounts/register").GetProperty("post");
+        Assert.Equal("RegisterAccount", registration.GetProperty("operationId").GetString());
+        Assert.Contains(registration.GetProperty("tags").EnumerateArray(),
+            tag => tag.GetString() == "Accounts");
+        var registrationResponses = registration.GetProperty("responses");
+        Assert.False(registrationResponses.TryGetProperty("200", out _));
+        var successSchema = registrationResponses.GetProperty("201")
+            .GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema").GetProperty("$ref").GetString();
+        Assert.Equal("#/components/schemas/RegisterAccountResponse", successSchema);
+        var schemas = document.RootElement.GetProperty("components").GetProperty("schemas");
+        var accountId = schemas.GetProperty("RegisterAccountResponse")
+            .GetProperty("properties").GetProperty("accountId");
+        Assert.Equal("string", accountId.GetProperty("type").GetString());
+        Assert.Equal("uuid", accountId.GetProperty("format").GetString());
+
+        var errorSchema = registrationResponses.GetProperty("400")
+            .GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema").GetProperty("$ref").GetString();
+        Assert.Equal("#/components/schemas/ProblemDetails", errorSchema);
+        var problemProperties = schemas.GetProperty("ProblemDetails").GetProperty("properties");
+        foreach (var property in new[] { "type", "title", "status", "detail", "instance" })
+        {
+            Assert.True(problemProperties.TryGetProperty(property, out _));
+        }
+        // Dynamic ProblemDetails extensions are covered by the HTTP registration tests.
+        // Do not invent a static `errors` schema the framework cannot infer.
+
     }
 }
