@@ -1,4 +1,5 @@
 using HomePlatform.Application.Accounts.RegisterAccount;
+using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Application.Households.CreateHousehold;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,10 @@ public static class DependencyInjection
     {
         services.AddScoped<RegisterAccountValidator>();
         services.AddScoped<RegisterAccountHandler>();
+
+        services.AddScoped<SignInAccountValidator>();
+        services.AddScoped<SignInAccountHandler>();
+
         services.AddScoped<CreateHouseholdHandler>();
 
         return services;

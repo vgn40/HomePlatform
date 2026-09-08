@@ -41,6 +41,10 @@ public static class DependencyInjection
             IAccountRegistration,
             IdentityAccountRegistration>();
 
+        services.AddScoped<
+            IAccountAuthentication,
+            IdentityAccountAuthentication>();
+
         return services;
     }
 }
