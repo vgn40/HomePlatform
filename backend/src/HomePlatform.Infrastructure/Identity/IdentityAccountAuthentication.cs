@@ -4,7 +4,8 @@ using Microsoft.AspNetCore.Identity;
 namespace HomePlatform.Infrastructure.Identity;
 
 public sealed class IdentityAccountAuthentication(
-    UserManager<ApplicationUser> userManager)
+    UserManager<ApplicationUser> userManager,
+    SignInManager<ApplicationUser> signInManager)
     : IAccountAuthentication
 {
     public async Task<AccountAuthenticationResult> AuthenticateAsync(
@@ -25,19 +26,23 @@ public sealed class IdentityAccountAuthentication(
                     AccountAuthenticationErrorCode.InvalidCredentials));
         }
 
-        if (await userManager.IsLockedOutAsync(user))
+        signInManager.AuthenticationScheme =
+            IdentityConstants.BearerScheme;
+
+        var result = await signInManager.PasswordSignInAsync(
+            user,
+            password,
+            isPersistent: false,
+            lockoutOnFailure: true);
+
+        if (result.IsLockedOut)
         {
             return AccountAuthenticationResult.Failure(
                 new AccountAuthenticationError(
                     AccountAuthenticationErrorCode.AccountLocked));
         }
 
-        var passwordIsValid =
-            await userManager.CheckPasswordAsync(
-                user,
-                password);
-
-        if (!passwordIsValid)
+        if (!result.Succeeded)
         {
             return AccountAuthenticationResult.Failure(
                 new AccountAuthenticationError(

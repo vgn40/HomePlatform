@@ -1,10 +1,10 @@
 using HomePlatform.Api;
+using HomePlatform.Api.Accounts;
 using HomePlatform.Api.Households;
 using HomePlatform.Api.Identity;
 using HomePlatform.Application;
 using HomePlatform.Application.Identity;
 using HomePlatform.Infrastructure;
-using HomePlatform.Api.Accounts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +16,6 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(
     builder.Configuration);
 
-builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 
 builder.Services.AddHttpContextAccessor();
@@ -31,6 +30,7 @@ app.UseExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapAccountEndpoints();
 
 if (app.Environment.IsDevelopment()

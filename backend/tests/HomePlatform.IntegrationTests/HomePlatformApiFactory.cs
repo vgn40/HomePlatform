@@ -8,7 +8,8 @@ namespace HomePlatform.IntegrationTests;
 
 public sealed class HomePlatformApiFactory(
     string connectionString,
-    Action<IServiceCollection>? configureTestServices = null)
+    Action<IServiceCollection>? configureTestServices = null,
+    bool useTestAuthentication = true)
     : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(
@@ -21,20 +22,23 @@ public sealed class HomePlatformApiFactory(
 
         builder.ConfigureTestServices(services =>
         {
-            services
-                .AddAuthentication(options =>
-                {
-                    options.DefaultAuthenticateScheme =
-                        TestAuthenticationHandler.SchemeName;
+            if (useTestAuthentication)
+            {
+                services
+                    .AddAuthentication(options =>
+                    {
+                        options.DefaultAuthenticateScheme =
+                            TestAuthenticationHandler.SchemeName;
 
-                    options.DefaultChallengeScheme =
-                        TestAuthenticationHandler.SchemeName;
-                })
-                .AddScheme<
-                    AuthenticationSchemeOptions,
-                    TestAuthenticationHandler>(
-                    TestAuthenticationHandler.SchemeName,
-                    _ => { });
+                        options.DefaultChallengeScheme =
+                            TestAuthenticationHandler.SchemeName;
+                    })
+                    .AddScheme<
+                        AuthenticationSchemeOptions,
+                        TestAuthenticationHandler>(
+                        TestAuthenticationHandler.SchemeName,
+                        _ => { });
+            }
 
             configureTestServices?.Invoke(services);
         });

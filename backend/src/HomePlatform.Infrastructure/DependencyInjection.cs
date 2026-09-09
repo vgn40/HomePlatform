@@ -31,7 +31,12 @@ public static class DependencyInjection
 
         services
             .AddIdentityCore<ApplicationUser>()
-            .AddEntityFrameworkStores<HomePlatformDbContext>();
+            .AddEntityFrameworkStores<HomePlatformDbContext>()
+            .AddSignInManager();
+
+        services
+            .AddAuthentication(IdentityConstants.BearerScheme)
+            .AddBearerToken(IdentityConstants.BearerScheme);
 
         services.AddScoped<
             IHouseholdRepository,
