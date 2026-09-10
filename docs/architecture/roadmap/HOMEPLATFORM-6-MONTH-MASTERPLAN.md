@@ -1,7 +1,7 @@
 # HomePlatform Six-Month Masterplan
 
 Status: **Authoritative strategic roadmap**  
-Last reviewed: **2026-09-07**
+Last reviewed: **2026-09-09**
 Planning horizon: approximately 26 weeks
 
 ## Executive direction
@@ -25,13 +25,15 @@ only current implementation-order document.
 
 ## Current state
 
-As of 2026-09-07, CreateHousehold retains its Testing-only
+As of 2026-09-09, CreateHousehold retains its Testing-only
 actor, contract, and PostgreSQL persistence tests. Identity persistence adds the
 third migration, and registration is committed in `e2fca98`, mapped anonymously in all
-environments. Real sign-in/session authentication, Membership authorization,
+environments. Bearer sign-in is implemented in `4180096`; Refresh remains
+work in progress without a use case or endpoint. The remaining account
+lifecycle, Membership authorization,
 deployment, and frontend remain unfinished.
 
-The verified registration baseline is 72/72 tests: Domain 25, Application 11,
+The historical registration baseline was 72/72 tests: Domain 25, Application 11,
 Integration 36. The [repo audit](../DDD-ARCHITECTURE-AUDIT.md) preserves its
 historical build/tests and records the registration follow-up. The 57-test Phase 1 run from 2026-09-02 is historical; current
 hosted CI execution, formatting, dependency vulnerability status, and deployment

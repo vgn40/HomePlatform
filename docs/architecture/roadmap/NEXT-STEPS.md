@@ -1,7 +1,7 @@
 # HomePlatform Next Steps
 
 Status: **Authoritative executable order**  
-Last reviewed: **2026-09-07**
+Last reviewed: **2026-09-09**
 Strategic parent: [HomePlatform Six-Month Masterplan](HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
 
 ## Current stop-gate
@@ -13,12 +13,13 @@ preserve concurrent work. No commit or push was made by the audit.
 ADR 0006 is Accepted and its core Household identity model is implemented.
 There are three migrations and dotnet-ef is pinned to 10.0.11. Phase 1's
 2026-09-02 completion is historical; Phase 2 has started with roleless Identity
-persistence and registration, but real authentication is not implemented.
+persistence, registration, and bearer sign-in (`4180096`). Bearer tokens
+authenticate follow-up requests; the remaining account lifecycle is incomplete.
 
 ### Account Registration: implemented and verified
 
-Account Registration is committed in `e2fca98`. The verified solution baseline
-is 72/72 tests: Domain 25, Application 11, Integration 36, with zero failures.
+Account Registration is committed in `e2fca98`. The historical registration baseline
+was 72/72 tests: Domain 25, Application 11, Integration 36, with zero failures.
 The complete HTTP -> Application -> Identity -> PostgreSQL slice includes:
 
 - required/format/bounded email and required password validation, with zero
@@ -28,6 +29,26 @@ The complete HTTP -> Application -> Identity -> PostgreSQL slice includes:
 - sequential duplicates and a deterministic database race yielding one 201,
   one 400 EmailAlreadyExists, and one Account; only PostgreSQL UniqueViolation
   on UserNameIndex is translated, while unrelated failures remain safe 500.
+
+### Account structure and bearer sign-in
+
+Application Accounts uses `Accounts/<UseCase>/` with `Register/`, `SignIn/`,
+and `Refresh/`. Each operation owns its ports, results, and errors. Assemblies
+represent layers; top-level Application/API folders represent business areas;
+use-case folders represent operations. Infrastructure Identity adapters stay put.
+
+`POST /api/accounts/register` and `POST /api/accounts/sign-in` are implemented.
+Sign-in issues bearer access/refresh tokens and enforces Identity lockout.
+Refresh contracts are work in progress; issuing a refresh token does not
+implement token renewal. No Refresh use case or route exists yet.
+
+### Structural refactor verification — 2026-09-09
+
+Against `main@4180096` plus the structural refactor and unchanged uncommitted
+Refresh files, solution restore and build passed with zero warnings/errors.
+All 86 tests passed: Domain 25, Application 11, Integration 50; none skipped.
+`git diff --check` passed. This is local verification, not hosted CI or
+deployment evidence.
 
 ### Now: remaining boundary and release gates
 
@@ -40,15 +61,15 @@ The complete HTTP -> Application -> Identity -> PostgreSQL slice includes:
    independent NormalizedEmail policy and future email/username changes still
    require explicit lifecycle and migration decisions.
 
-### Next: authentication, then collaboration
+### Next: remaining account lifecycle, then collaboration
 
-Choose one supported authentication mode, configure the required Identity
-services and lifecycle, and prove real login/challenge in a test host without
-the fake scheme. Define Account-reference integrity before exposing real
-Household writes. Then implement Membership authorization and the first
-mutation with concurrency proof. Keep Household creation Testing-only until its
-real-authentication gate passes; do not build invitations or a public client
-against fake authentication.
+Continue the remaining account lifecycle, including the separate Refresh work,
+confirmation, recovery, and revocation. Bearer sign-in and authenticated
+follow-up requests already have real HTTP/PostgreSQL tests without the fake
+scheme. Define Account-reference integrity before exposing real Household
+writes, then implement Membership authorization and the first mutation with
+concurrency proof. Keep Household creation Testing-only until the remaining
+resource-authorization and release gates pass.
 
 The [repo audit](../DDD-ARCHITECTURE-AUDIT.md) owns point-in-time evidence and
 findings. The sections below retain Phase 1 acceptance detail for reference;

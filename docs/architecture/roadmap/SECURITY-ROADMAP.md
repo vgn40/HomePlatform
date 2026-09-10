@@ -1,7 +1,7 @@
 # HomePlatform Security Roadmap
 
 Status: **Authoritative security plan**  
-Last reviewed: **2026-09-07**
+Last reviewed: **2026-09-09**
 Scope: authentication, authorization, API/data protection, secure operations,
 and blocking verification gates for the six-month plan  
 Rule: authentication proves Account identity; authorization decides what that
@@ -21,26 +21,27 @@ follow-up work.
 | OpenAPI restricted by environment | PASS for Phase 1 | OpenAPI is mapped in Development and Testing; generated Testing OpenAPI proves the Testing-only Household route's 201/400/401 contract, while Production does not expose the route. |
 | PostgreSQL readiness without credential disclosure | PASS | `/ready` reports ready/unavailable only. |
 | Known NuGet vulnerability scan | PASS (2026-09-02) | connected NuGet audit reported no known vulnerable direct or transitive packages in any solution project; the workflow reruns the time-sensitive check. |
-| Authentication/account lifecycle | PARTIAL; release gate OPEN | roleless Identity persistence and implemented/verified registration exist; sign-in/session, confirmation, and recovery are not implemented. |
+| Authentication/account lifecycle | PARTIAL; release gate OPEN | roleless Identity persistence and implemented/verified registration exist; bearer sign-in is implemented; Refresh is work in progress without a use case or endpoint, and confirmation/recovery/revocation remain incomplete. |
 | Authorization/resource checks | FAIL | not implemented. |
 | Trusted creator identity | PASS for Testing slice | command carries Name only; `ICurrentAccount` derives the actor from authenticated claims; anonymous/malformed and caller-supplied AccountId tests prove zero impersonation. |
-| Rate limiting/lockout policy | INCOMPLETE | Identity default lockout fields/options exist, but there is no sign-in flow with lockout enforcement or endpoint rate limiting. |
+| Rate limiting/lockout policy | INCOMPLETE | sign-in uses Identity lockout enforcement with lockoutOnFailure enabled; endpoint rate limiting and the broader release policy remain incomplete. |
 | HTTPS/reverse-proxy production policy | FAIL | not implemented; local launch is HTTP. |
 | CORS policy | NOT VERIFIED / not required yet | no frontend/API cross-origin contract exists. Absence is safer than `AllowAnyOrigin`; configure exact origins only when Expo web exists. |
 | Secrets management | PARTIAL | disposable development credentials are tracked in example/development files; no production secret store/configuration exists. |
 | Logging redaction policy | FAIL | default logging exists; no explicit sensitive-data rules/tests. |
-| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; registration tests now exercise UserManager and PostgreSQL; real-authentication, IDOR, token, and broader redaction proof remain incomplete. |
+| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; registration tests now exercise UserManager and PostgreSQL; bearer sign-in tests cover token issuance, authenticated follow-up requests, wrong-password failed counts, and locked-account rejection; IDOR, Refresh lifecycle, and broader redaction proof remain incomplete. |
 | Database least privilege/backups/restore | NOT VERIFIED | no deployed database or production roles exist. |
 
-The live Program also maps anonymous `POST /api/accounts/register` in Production;
+The live Program maps anonymous `POST /api/accounts/register` and
+`POST /api/accounts/sign-in` in Production;
 only the Household route is Testing-only. This is source-level exposure, not
 evidence of a public deployment. Registration input validation, recognized
 UserNameIndex duplicate-race mapping, typed errors, and OpenAPI are implemented
-and verified in `e2fca98` (72/72 solution tests). Release gates, real authentication,
+and verified in `e2fca98` (72/72 solution tests). Bearer sign-in is implemented in `4180096`. Release gates, Refresh,
 confirmation/recovery/revocation, and the independent email lifecycle policy
 remain open; see the [audit follow-up](../DDD-ARCHITECTURE-AUDIT.md). Keep the
-Household route absent from Production until real authentication and trusted
-caller handling are ready.
+Household route absent from Production until Account-reference integrity,
+resource authorization, and the remaining release gates are ready.
 
 ## Trust model
 

@@ -1,7 +1,7 @@
 # HomePlatform Target Architecture
 
 Status: **Authoritative target**  
-Last reviewed: **2026-09-07**
+Last reviewed: **2026-09-09**
 Decision boundary: accepted ADRs, including ADR 0006, are binding
 
 ## Purpose and authority
@@ -14,25 +14,27 @@ boundaries, the [domain model](DOMAIN-MODEL.md) owns DDD terminology, and the
 
 ## Current architecture
 
-As of 2026-09-07, with Account Registration committed in `e2fca98`:
+As of 2026-09-09, with bearer sign-in committed in `4180096`:
 
 - four production projects follow the dependency graph below;
 - Domain contains Household and its HouseholdMember entities, HouseholdRole,
   and a small Result helper. It has no User, Account aggregate, explicit value
   objects, Domain Services, or Domain Events;
-- Application contains CreateHousehold, RegisterAccount, their input/results,
-  and the IHouseholdRepository, ICurrentAccount, and IAccountRegistration ports;
+- Application contains CreateHousehold, RegisterAccount, SignInAccount, their
+  input/results, and focused ports. Accounts uses `Accounts/<UseCase>/` with
+  Register, SignIn, and incomplete Refresh contracts local to each operation;
 - Infrastructure owns the focused Household repository, Npgsql DbContext,
   field-backed mappings, roleless ASP.NET Core Identity persistence, and the
-  UserManager-backed registration adapter;
+  UserManager-backed registration and SignInManager-backed authentication adapters;
 - API maps health/readiness, Development/Testing OpenAPI, Testing-only
   authenticated `POST /api/households`, and anonymous
-  `POST /api/accounts/register` in every environment, including Production;
+  `POST /api/accounts/register` and `POST /api/accounts/sign-in` in every
+  environment, including Production;
 - three migrations exist: InitialHousehold, LimitHouseholdNameLength, and
   AddIdentityPersistence. The local dotnet-ef pin is 10.0.11;
-- registration is implemented and verified (72/72 solution tests: Domain 25,
-  Application 11, Integration 36). Real sign-in/session authentication,
-  confirmation/recovery, Account-reference validation, Household resource
+- registration and bearer sign-in are implemented. The historical registration
+  baseline was 72/72 tests. Refresh remains work in progress without a use case
+  or endpoint. Confirmation/recovery/revocation, Account-reference validation, Household resource
   authorization, deployment, and frontend remain incomplete.
 
 The [DDD/Clean Architecture audit](../DDD-ARCHITECTURE-AUDIT.md) records the

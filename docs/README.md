@@ -16,8 +16,10 @@ and generated research evidence.
 Current implementation includes the Testing-only CreateHousehold path and
 roleless Identity persistence. Account Registration is implemented and committed in
 `e2fca98`, with an anonymous endpoint in every environment and a verified
-72/72-test baseline (Domain 25, Application 11, Integration 36). Real authentication, Household
-resource authorization, and frontend remain incomplete. See the
+historical 72/72-test registration baseline. Bearer sign-in is implemented in
+`4180096`; Refresh remains work in progress without a use case or endpoint.
+The remaining account lifecycle, Household resource authorization, and frontend
+remain incomplete. See the
 [2026-09-06 repo audit](architecture/DDD-ARCHITECTURE-AUDIT.md) and its registration follow-up for evidence; historical Phase 1 checks do not certify the registration slice.
 
 ## Authoritative documents

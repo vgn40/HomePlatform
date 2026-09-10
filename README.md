@@ -5,15 +5,17 @@ HomePlatform is an early-stage household coordination platform and a pragmatic
 household membership, tasks and routines, shopping, events, and a read-only
 Today view.
 
-> **Current status (2026-09-07):** PostgreSQL-backed CreateHousehold exists behind
+> **Current status (2026-09-09):** PostgreSQL-backed CreateHousehold exists behind
 > a Testing-only authenticated route. Roleless ASP.NET Core Identity persistence
 > and Account Registration are implemented; registration is committed in `e2fca98` and maps an
-> anonymous endpoint in every environment. Real sign-in/session authentication,
+> anonymous endpoint in every environment. Bearer sign-in is implemented in
+> `4180096`; Refresh remains work in progress without an implemented endpoint.
+> The remaining account lifecycle,
 > Household resource authorization, deployment, and frontend remain incomplete.
 > The [DDD/Clean Architecture audit](docs/architecture/DDD-ARCHITECTURE-AUDIT.md)
 > preserves historical findings and records the registration follow-up; [next steps](docs/architecture/roadmap/NEXT-STEPS.md)
-> owns the executable order. The verified registration baseline is 72/72 tests
-> (Domain 25, Application 11, Integration 36).
+> owns the executable order. The historical registration baseline was 72/72 tests.
+> See next steps for current verification and remaining gates.
 
 ## Technology
 

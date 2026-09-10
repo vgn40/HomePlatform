@@ -1,7 +1,7 @@
 # HomePlatform Context Map
 
 Status: **Authoritative context description**  
-Last reviewed: **2026-09-07**
+Last reviewed: **2026-09-09**
 
 ## Current implemented state
 
@@ -9,8 +9,10 @@ The codebase currently has layered projects and one implemented Households
 slice for creating and persisting a Household with its initial Owner
 Membership. It does not yet have a complete Household lifecycle or fully
 enforced bounded contexts. Roleless Identity persistence and implemented Account
-Registration exist (`e2fca98`; verified solution baseline: 72/72 tests). Sign-in/session authentication and a complete Identity lifecycle remain
-unimplemented, as do Tasks & Routines, Shopping, Events, Today, Notifications,
+Registration exist (`e2fca98`; historical registration baseline: 72/72 tests).
+Bearer sign-in is implemented in `4180096`; Refresh remains work in progress
+without a use case or endpoint. The remaining Identity lifecycle is incomplete,
+as are Tasks & Routines, Shopping, Events, Today, Notifications,
 and Calendar Integration. Folder names alone are not bounded-context evidence.
 
 ## Candidate target boundaries

@@ -11,10 +11,15 @@ separate from product research and generated evidence.
   Testing-only CreateHousehold slice implement the core of accepted ADR 0006.
 - Infrastructure owns roleless Identity persistence. Account Registration is
   implemented and committed in `e2fca98`, with an anonymous endpoint in every
-  environment, including Production; the verified solution baseline is 72/72
+  environment, including Production; the historical registration baseline was 72/72
   tests (Domain 25, Application 11, Integration 36).
-- Sign-in/session authentication, Household resource authorization, deployment,
-  and frontend remain incomplete. Registration does not complete those gates.
+- Bearer sign-in is implemented in `4180096`, including authenticated follow-up
+  requests. Refresh remains work in progress without a use case or endpoint.
+  The remaining account lifecycle, Household resource authorization, deployment,
+  and frontend remain incomplete.
+- Application/API use business-area folders with concrete operation folders.
+  Application Accounts keeps Register, SignIn, and Refresh contracts local to
+  `Accounts/<UseCase>/`; Identity adapters remain in Infrastructure/Identity.
 - Tactical DDD is present in Household; multiple implemented bounded contexts
   and strategic DDD are not established.
 
