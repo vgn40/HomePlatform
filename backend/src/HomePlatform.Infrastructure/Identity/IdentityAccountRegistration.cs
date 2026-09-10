@@ -1,4 +1,4 @@
-using HomePlatform.Application.Accounts;
+using HomePlatform.Application.Accounts.Register;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;

@@ -1,4 +1,4 @@
-namespace HomePlatform.Application.Accounts.RegisterAccount;
+namespace HomePlatform.Application.Accounts.Register;
 
 public sealed class RegisterAccountHandler(
     IAccountRegistration accountRegistration,

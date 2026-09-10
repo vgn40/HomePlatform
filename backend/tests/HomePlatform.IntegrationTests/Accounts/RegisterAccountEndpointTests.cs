@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using HomePlatform.Application.Accounts;
+using HomePlatform.Application.Accounts.Register;
 using HomePlatform.Infrastructure.Identity;
 using HomePlatform.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +12,7 @@ using Npgsql;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
-namespace HomePlatform.IntegrationTests;
+namespace HomePlatform.IntegrationTests.Accounts;
 
 public sealed class RegisterAccountEndpointTests : IAsyncLifetime
 {

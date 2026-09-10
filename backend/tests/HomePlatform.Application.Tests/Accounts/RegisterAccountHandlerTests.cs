@@ -1,5 +1,4 @@
-using HomePlatform.Application.Accounts;
-using HomePlatform.Application.Accounts.RegisterAccount;
+using HomePlatform.Application.Accounts.Register;
 
 namespace HomePlatform.Application.Tests.Accounts;
 

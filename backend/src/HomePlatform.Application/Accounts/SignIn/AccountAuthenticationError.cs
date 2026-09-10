@@ -1,4 +1,4 @@
-namespace HomePlatform.Application.Accounts;
+namespace HomePlatform.Application.Accounts.SignIn;
 
 public sealed record AccountAuthenticationError(
     AccountAuthenticationErrorCode Code);

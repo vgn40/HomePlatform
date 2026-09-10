@@ -1,4 +1,5 @@
-using HomePlatform.Application.Accounts;
+using HomePlatform.Application.Accounts.Register;
+using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Application.Households;
 using HomePlatform.Infrastructure.Identity;
 using HomePlatform.Infrastructure.Persistence;

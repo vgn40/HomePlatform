@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
-namespace HomePlatform.IntegrationTests;
+namespace HomePlatform.IntegrationTests.Households;
 
 public sealed class HouseholdPersistenceTests : IAsyncLifetime
 {

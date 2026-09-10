@@ -1,4 +1,3 @@
-using HomePlatform.Application.Accounts;
 using HomePlatform.Application.Accounts.SignIn;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Mvc;

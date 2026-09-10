@@ -1,4 +1,4 @@
-using HomePlatform.Application.Accounts;
+using HomePlatform.Application.Accounts.SignIn;
 using Microsoft.AspNetCore.Identity;
 
 namespace HomePlatform.Infrastructure.Identity;

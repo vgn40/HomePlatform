@@ -1,4 +1,4 @@
-using HomePlatform.Application.Accounts.RegisterAccount;
+using HomePlatform.Application.Accounts.Register;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HomePlatform.Api.Accounts.Register;

@@ -1,4 +1,4 @@
-namespace HomePlatform.Application.Accounts;
+namespace HomePlatform.Application.Accounts.Register;
 
 public interface IAccountRegistration
 {

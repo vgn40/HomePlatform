@@ -1,4 +1,4 @@
-using HomePlatform.Application.Accounts.RegisterAccount;
+using HomePlatform.Application.Accounts.Register;
 using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Application.Households.CreateHousehold;
 using Microsoft.Extensions.DependencyInjection;

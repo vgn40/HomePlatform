@@ -1,5 +1,3 @@
-using HomePlatform.Application.Accounts;
-
 namespace HomePlatform.Application.Accounts.SignIn;
 
 public sealed class SignInAccountValidator

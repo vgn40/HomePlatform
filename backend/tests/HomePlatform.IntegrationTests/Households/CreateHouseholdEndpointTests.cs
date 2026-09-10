@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
-namespace HomePlatform.IntegrationTests;
+namespace HomePlatform.IntegrationTests.Households;
 
 public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
 {

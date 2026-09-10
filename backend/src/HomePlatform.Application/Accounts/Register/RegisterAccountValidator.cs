@@ -1,7 +1,6 @@
 using System.Net.Mail;
-using HomePlatform.Application.Accounts;
 
-namespace HomePlatform.Application.Accounts.RegisterAccount;
+namespace HomePlatform.Application.Accounts.Register;
 
 public sealed class RegisterAccountValidator
 {

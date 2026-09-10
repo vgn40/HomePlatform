@@ -4,7 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using HomePlatform.Api.Households;
-using HomePlatform.Application.Accounts;
+using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Domain.Household;
 using HomePlatform.Infrastructure.Identity;
 using HomePlatform.Infrastructure.Persistence;
@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
-namespace HomePlatform.IntegrationTests;
+namespace HomePlatform.IntegrationTests.Accounts;
 
 public sealed class AccountAuthenticationTests : IAsyncLifetime
 {
