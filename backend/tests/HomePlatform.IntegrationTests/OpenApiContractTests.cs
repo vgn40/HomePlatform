@@ -80,4 +80,35 @@ public sealed class OpenApiContractTests
         // Do not invent a static `errors` schema the framework cannot infer.
 
     }
+
+    [Fact]
+    public async Task Open_api_describes_refresh_account_token_and_problem_responses()
+    {
+        await using var factory = new HomePlatformApiFactory(
+            "Host=127.0.0.1;Port=1;Database=homeplatform;" +
+            "Username=homeplatform;Password=homeplatform-dev",
+            useTestAuthentication: false);
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/openapi/v1.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var operation = document.RootElement.GetProperty("paths")
+            .GetProperty("/api/accounts/refresh").GetProperty("post");
+
+        Assert.Equal("RefreshAccount", operation.GetProperty("operationId").GetString());
+        Assert.Contains(operation.GetProperty("tags").EnumerateArray(),
+            tag => tag.GetString() == "Accounts");
+        var responses = operation.GetProperty("responses");
+        Assert.Equal(new[] { "200", "400", "401" },
+            responses.EnumerateObject().Select(property => property.Name).Order());
+        Assert.Equal("#/components/schemas/AccessTokenResponse",
+            responses.GetProperty("200").GetProperty("content").GetProperty("application/json")
+                .GetProperty("schema").GetProperty("$ref").GetString());
+        foreach (var status in new[] { "400", "401" })
+        {
+            Assert.Equal("#/components/schemas/ProblemDetails",
+                responses.GetProperty(status).GetProperty("content").GetProperty("application/json")
+                    .GetProperty("schema").GetProperty("$ref").GetString());
+        }
+    }
 }
