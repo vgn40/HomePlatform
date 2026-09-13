@@ -1,7 +1,7 @@
 # HomePlatform Security Roadmap
 
 Status: **Authoritative security plan**  
-Last reviewed: **2026-09-09**
+Last reviewed: **2026-09-13**
 Scope: authentication, authorization, API/data protection, secure operations,
 and blocking verification gates for the six-month plan  
 Rule: authentication proves Account identity; authorization decides what that
@@ -21,7 +21,7 @@ follow-up work.
 | OpenAPI restricted by environment | PASS for Phase 1 | OpenAPI is mapped in Development and Testing; generated Testing OpenAPI proves the Testing-only Household route's 201/400/401 contract, while Production does not expose the route. |
 | PostgreSQL readiness without credential disclosure | PASS | `/ready` reports ready/unavailable only. |
 | Known NuGet vulnerability scan | PASS (2026-09-02) | connected NuGet audit reported no known vulnerable direct or transitive packages in any solution project; the workflow reruns the time-sensitive check. |
-| Authentication/account lifecycle | PARTIAL; release gate OPEN | roleless Identity persistence and implemented/verified registration exist; bearer sign-in is implemented; Refresh is work in progress without a use case or endpoint, and confirmation/recovery/revocation remain incomplete. |
+| Authentication/account lifecycle | PARTIAL; release gate OPEN | roleless Identity persistence and implemented/verified registration exist; bearer sign-in and anonymous Refresh are implemented; refresh validates expiry/security stamp and issues new access/refresh tokens; confirmation/recovery/logout/revocation and broader release gates remain incomplete. |
 | Authorization/resource checks | FAIL | not implemented. |
 | Trusted creator identity | PASS for Testing slice | command carries Name only; `ICurrentAccount` derives the actor from authenticated claims; anonymous/malformed and caller-supplied AccountId tests prove zero impersonation. |
 | Rate limiting/lockout policy | INCOMPLETE | sign-in uses Identity lockout enforcement with lockoutOnFailure enabled; endpoint rate limiting and the broader release policy remain incomplete. |
@@ -29,19 +29,41 @@ follow-up work.
 | CORS policy | NOT VERIFIED / not required yet | no frontend/API cross-origin contract exists. Absence is safer than `AllowAnyOrigin`; configure exact origins only when Expo web exists. |
 | Secrets management | PARTIAL | disposable development credentials are tracked in example/development files; no production secret store/configuration exists. |
 | Logging redaction policy | FAIL | default logging exists; no explicit sensitive-data rules/tests. |
-| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; registration tests now exercise UserManager and PostgreSQL; bearer sign-in tests cover token issuance, authenticated follow-up requests, wrong-password failed counts, and locked-account rejection; IDOR, Refresh lifecycle, and broader redaction proof remain incomplete. |
+| Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; registration tests now exercise UserManager and PostgreSQL; bearer sign-in tests cover token issuance, authenticated follow-up requests, wrong-password failed counts, and locked-account rejection; real-bearer Refresh tests cover renewal, protected AccountId persistence, required/invalid/tampered/expired/stamp-invalidated tokens, public error non-disclosure, one JSON response, and anonymous fallback-policy behavior; IDOR, client/revocation lifecycle, and broader log redaction proof remain incomplete. |
 | Database least privilege/backups/restore | NOT VERIFIED | no deployed database or production roles exist. |
 
-The live Program maps anonymous `POST /api/accounts/register` and
-`POST /api/accounts/sign-in` in Production;
+The live Program maps anonymous `POST /api/accounts/register`,
+`POST /api/accounts/sign-in`, and `POST /api/accounts/refresh` in Production;
 only the Household route is Testing-only. This is source-level exposure, not
 evidence of a public deployment. Registration input validation, recognized
 UserNameIndex duplicate-race mapping, typed errors, and OpenAPI are implemented
-and verified in `e2fca98` (72/72 solution tests). Bearer sign-in is implemented in `4180096`. Release gates, Refresh,
-confirmation/recovery/revocation, and the independent email lifecycle policy
-remain open; see the [audit follow-up](../DDD-ARCHITECTURE-AUDIT.md). Keep the
+and verified in `e2fca98` (historical 72/72 solution tests). Bearer sign-in is
+implemented in `4180096`. Refresh is implemented with permanent PostgreSQL
+coverage; [current verification](NEXT-STEPS.md#refresh-verification--2026-09-13)
+is 105/105 tests. Release gates, confirmation/recovery/logout/revocation, and the
+independent email lifecycle policy remain open. Keep the
 Household route absent from Production until Account-reference integrity,
 resource authorization, and the remaining release gates are ready.
+
+### Verified Refresh behavior and remaining session evidence
+
+`POST /api/accounts/refresh` requires no access token, including under a test
+fallback policy requiring authentication. A missing/null/empty/whitespace token
+returns 400 RefreshTokenRequired. Malformed, tampered, expired, and
+security-stamp-invalidated tokens return the same 401 InvalidRefreshToken
+ProblemDetails without token, Identity, decryption, or exception disclosure in
+the tested responses. A shared test clock proves success immediately before
+expiry and rejection at/after expiry on ASP.NET Core 10.0.11. Success writes one
+framework AccessTokenResponse with new access/refresh tokens; the new access
+token authorizes a Household write with the registered AccountId. OpenAPI
+exposes only 200 AccessTokenResponse and 400/401 ProblemDetails.
+
+This does not close client storage/replacement, prior-refresh-token reuse,
+wrong-purpose-token coverage, password-change/reset flows, old-access-token
+validity windows, logout/per-device revocation decisions, rate limiting,
+sensitive-log redaction, or shared Data Protection key continuity gates. New
+tokens alone do not prove one-time consumption or server-side replay detection.
+The authenticated fallback policy is a test override, not production policy.
 
 ## Trust model
 

@@ -1,7 +1,7 @@
 # HomePlatform Next Steps
 
 Status: **Authoritative executable order**  
-Last reviewed: **2026-09-09**
+Last reviewed: **2026-09-13**
 Strategic parent: [HomePlatform Six-Month Masterplan](HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
 
 ## Current stop-gate
@@ -13,8 +13,9 @@ preserve concurrent work. No commit or push was made by the audit.
 ADR 0006 is Accepted and its core Household identity model is implemented.
 There are three migrations and dotnet-ef is pinned to 10.0.11. Phase 1's
 2026-09-02 completion is historical; Phase 2 has started with roleless Identity
-persistence, registration, and bearer sign-in (`4180096`). Bearer tokens
-authenticate follow-up requests; the remaining account lifecycle is incomplete.
+persistence, registration, bearer sign-in (`4180096`), and the implemented
+Refresh endpoint. Renewed bearer tokens authenticate follow-up requests;
+the remaining account lifecycle is incomplete.
 
 ### Account Registration: implemented and verified
 
@@ -30,17 +31,56 @@ The complete HTTP -> Application -> Identity -> PostgreSQL slice includes:
   one 400 EmailAlreadyExists, and one Account; only PostgreSQL UniqueViolation
   on UserNameIndex is translated, while unrelated failures remain safe 500.
 
-### Account structure and bearer sign-in
+### Account structure, bearer sign-in, and refresh
 
 Application Accounts uses `Accounts/<UseCase>/` with `Register/`, `SignIn/`,
 and `Refresh/`. Each operation owns its ports, results, and errors. Assemblies
 represent layers; top-level Application/API folders represent business areas;
 use-case folders represent operations. Infrastructure Identity adapters stay put.
 
-`POST /api/accounts/register` and `POST /api/accounts/sign-in` are implemented.
-Sign-in issues bearer access/refresh tokens and enforces Identity lockout.
-Refresh contracts are work in progress; issuing a refresh token does not
-implement token renewal. No Refresh use case or route exists yet.
+`POST /api/accounts/register`, `POST /api/accounts/sign-in`, and
+`POST /api/accounts/refresh` are implemented with AllowAnonymous in every
+environment. Sign-in issues bearer access/refresh tokens and enforces Identity
+lockout. Refresh follows this explicit slice:
+
+```text
+POST /api/accounts/refresh -> RefreshAccountRequest -> RefreshAccountCommand
+-> RefreshAccountHandler -> IAccountRefresh -> IdentityAccountRefresh
+-> BearerTokenHandler -> new AccessTokenResponse
+```
+
+RefreshAccountValidator requires a nonblank token. IdentityAccountRefresh
+validates its expiry and the user's current security stamp before creating a
+new principal and invoking the framework bearer handler. Successful refresh
+returns new access and refresh tokens; Results.Empty prevents an extra endpoint
+body. Missing/blank tokens return 400 RefreshTokenRequired; invalid, tampered,
+expired, and stamp-invalidated tokens return 401 InvalidRefreshToken.
+
+### Refresh verification — 2026-09-13
+
+Against `main@1d36bf7` plus the existing uncommitted Refresh implementation and
+new tests, restore/build passed with zero warnings/errors. All 105 tests passed:
+Domain 25, Application 16, Integration 64; none skipped. The 19 added cases are
+5 Application tests, 13 real-bearer PostgreSQL integration tests, and 1 generated
+OpenAPI contract test. The separately filtered Refresh suite passed 18/18.
+`git diff --check` passed. No production code changes were needed for this test
+and documentation task; no commit or push was made.
+
+Permanent coverage lives in
+[RefreshAccountHandlerTests](../../../backend/tests/HomePlatform.Application.Tests/Accounts/RefreshAccountHandlerTests.cs),
+[RefreshAccountEndpointTests](../../../backend/tests/HomePlatform.IntegrationTests/Accounts/RefreshAccountEndpointTests.cs),
+and [OpenApiContractTests](../../../backend/tests/HomePlatform.IntegrationTests/OpenApiContractTests.cs).
+It proves register -> sign-in -> refresh -> new access token -> protected
+Household request -> persisted registered AccountId. It also covers missing,
+null, empty, whitespace, malformed, and tampered tokens; changed Identity
+security stamp; safe public ProblemDetails; a single JSON token response; and
+anonymous refresh under an authenticated fallback policy. Expiry is controlled
+with one test clock shared by the adapter and bearer-handler options, checking
+one second before, exactly at, and one second after expiry without sleeps.
+Generated OpenAPI declares only 200 AccessTokenResponse and 400/401 ProblemDetails.
+Existing registration and bearer sign-in regressions remain green. This is
+local test-host evidence; hosted CI, deployment, client token handling, and the
+remaining lifecycle/release gates are not certified by it.
 
 ### Structural refactor verification — 2026-09-09
 
@@ -55,7 +95,8 @@ deployment evidence.
 1. Strengthen architecture tests to guard forbidden frameworks/packages and
    project-reference metadata. No new architecture-test framework is necessary.
 2. Keep production exposure aligned with the release decision. Registration is
-   mapped anonymously in every environment; TLS, throttling, and broader auth
+   mapped anonymously alongside sign-in and refresh in every environment;
+   TLS, throttling, and broader auth
    error-policy gates remain open. A passing test host is not deployment proof.
 3. Retain the current UserName=email uniqueness guard. The security roadmap's
    independent NormalizedEmail policy and future email/username changes still
@@ -63,10 +104,12 @@ deployment evidence.
 
 ### Next: remaining account lifecycle, then collaboration
 
-Continue the remaining account lifecycle, including the separate Refresh work,
-confirmation, recovery, and revocation. Bearer sign-in and authenticated
-follow-up requests already have real HTTP/PostgreSQL tests without the fake
-scheme. Define Account-reference integrity before exposing real Household
+Continue confirmation, recovery, and logout/revocation, including explicit
+prior-refresh-token reuse and old-access-token validity semantics. Complete rate
+limiting, client token storage, and Data Protection continuity release gates.
+Registration, bearer sign-in, refresh expiry/security-stamp rejection, and
+protected follow-up requests already have real HTTP/PostgreSQL tests without
+the fake scheme. Define Account-reference integrity before exposing real Household
 writes, then implement Membership authorization and the first mutation with
 concurrency proof. Keep Household creation Testing-only until the remaining
 resource-authorization and release gates pass.

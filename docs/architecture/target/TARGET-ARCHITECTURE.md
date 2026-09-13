@@ -1,7 +1,7 @@
 # HomePlatform Target Architecture
 
 Status: **Authoritative target**  
-Last reviewed: **2026-09-09**
+Last reviewed: **2026-09-13**
 Decision boundary: accepted ADRs, including ADR 0006, are binding
 
 ## Purpose and authority
@@ -14,28 +14,33 @@ boundaries, the [domain model](DOMAIN-MODEL.md) owns DDD terminology, and the
 
 ## Current architecture
 
-As of 2026-09-09, with bearer sign-in committed in `4180096`:
+As of 2026-09-13, with bearer sign-in committed in `4180096` and Refresh implemented in the working tree:
 
 - four production projects follow the dependency graph below;
 - Domain contains Household and its HouseholdMember entities, HouseholdRole,
   and a small Result helper. It has no User, Account aggregate, explicit value
   objects, Domain Services, or Domain Events;
-- Application contains CreateHousehold, RegisterAccount, SignInAccount, their
-  input/results, and focused ports. Accounts uses `Accounts/<UseCase>/` with
-  Register, SignIn, and incomplete Refresh contracts local to each operation;
+- Application contains CreateHousehold, RegisterAccount, SignInAccount,
+  RefreshAccount, their input/results, and focused ports. Accounts uses
+  `Accounts/<UseCase>/` with Register, SignIn, and Refresh use cases and contracts
+  local to each operation;
 - Infrastructure owns the focused Household repository, Npgsql DbContext,
   field-backed mappings, roleless ASP.NET Core Identity persistence, and the
-  UserManager-backed registration and SignInManager-backed authentication adapters;
+  UserManager-backed registration and SignInManager-backed sign-in/refresh adapters;
 - API maps health/readiness, Development/Testing OpenAPI, Testing-only
   authenticated `POST /api/households`, and anonymous
-  `POST /api/accounts/register` and `POST /api/accounts/sign-in` in every
-  environment, including Production;
+  `POST /api/accounts/register`, `POST /api/accounts/sign-in`, and
+  `POST /api/accounts/refresh` in every environment, including Production;
 - three migrations exist: InitialHousehold, LimitHouseholdNameLength, and
   AddIdentityPersistence. The local dotnet-ef pin is 10.0.11;
-- registration and bearer sign-in are implemented. The historical registration
-  baseline was 72/72 tests. Refresh remains work in progress without a use case
-  or endpoint. Confirmation/recovery/revocation, Account-reference validation, Household resource
-  authorization, deployment, and frontend remain incomplete.
+- registration, bearer sign-in, and Refresh are implemented. Refresh validates
+  expiry/security stamp and issues new access/refresh tokens through the framework
+  bearer handler; the endpoint returns Results.Empty after that response.
+  Permanent real-bearer PostgreSQL tests prove renewal, safe failures, and the
+  registered AccountId on a protected Household write. Current verification is
+  105/105 tests; the historical registration baseline remains 72/72.
+  Confirmation/recovery/revocation, rate limiting, Account-reference validation,
+  Household resource authorization, deployment, and frontend remain incomplete.
 
 The [DDD/Clean Architecture audit](../DDD-ARCHITECTURE-AUDIT.md) records the
 historical verification and findings, with a registration completion follow-up. The earlier 57-test Phase 1
@@ -273,8 +278,11 @@ detailed trust model and release gates.
   Current Household validation uses ProblemDetails and 401 is empty; registration
   returns ProblemDetails with an `errors` array of Application-owned codes. Its
   generated OpenAPI declares 201 RegisterAccountResponse and 400 ProblemDetails;
-  unexpected database failures remain generic 500. Cross-endpoint code/traceId
-  consistency remains a follow-up.
+  unexpected database failures remain generic 500. Sign-in and Refresh declare
+  200 AccessTokenResponse and 400/401 ProblemDetails. Refresh's generated contract
+  has no 201 or extra success status; its HTTP failures expose RefreshTokenRequired
+  or InvalidRefreshToken in `errors`. Cross-endpoint code/traceId consistency
+  remains a follow-up.
 - Document meaningful 2xx/400/401/403-or-404/409/429 responses.
 - Never serialize Domain/EF/Identity entities.
 - Establish mobile compatibility/deprecation policy before public app-store
@@ -310,7 +318,7 @@ number, future feature name, or portfolio goal does not trigger infrastructure.
 | Timing | Candidate | Problem/trigger and simplest first response |
 |---|---|---|
 | Now | Four layers, explicit handlers, aggregate repository, one DbContext | Keep the existing use-case, Domain, and persistence separation. No structural rewrite. |
-| Next | Dependency guards and real authentication | Registration input/duplicate/error contracts are implemented and verified. Guard framework as well as project dependencies, then implement real authentication. |
+| Next | Dependency guards and remaining account lifecycle | Registration, bearer sign-in, and Refresh have permanent coverage. Guard framework as well as project dependencies; complete confirmation/recovery/revocation and release gates. |
 | Next, with first read | Queries/read DTOs | Project authorized data from the same PostgreSQL database; do not hydrate aggregates for display. |
 | Later if needed | Bounded context split | Independent language, invariants, model, lifecycle, ownership, and reasons to change are demonstrated; start with folders/contracts. |
 | Later if needed | Domain events | One domain action has multiple independent reactions and direct orchestration becomes coupled. Start in process and decide before/after-commit semantics. |

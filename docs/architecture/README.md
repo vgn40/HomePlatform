@@ -14,12 +14,15 @@ separate from product research and generated evidence.
   environment, including Production; the historical registration baseline was 72/72
   tests (Domain 25, Application 11, Integration 36).
 - Bearer sign-in is implemented in `4180096`, including authenticated follow-up
-  requests. Refresh remains work in progress without a use case or endpoint.
+  requests. Anonymous `POST /api/accounts/refresh` is implemented and validates
+  expiry/security stamp before issuing new access/refresh tokens. Permanent
+  real-bearer PostgreSQL tests prove renewal and the persisted Household AccountId.
   The remaining account lifecycle, Household resource authorization, deployment,
   and frontend remain incomplete.
 - Application/API use business-area folders with concrete operation folders.
-  Application Accounts keeps Register, SignIn, and Refresh contracts local to
-  `Accounts/<UseCase>/`; Identity adapters remain in Infrastructure/Identity.
+  Application Accounts keeps each Register, SignIn, and Refresh use case and
+  its contracts local to `Accounts/<UseCase>/`; Identity adapters remain in
+  Infrastructure/Identity.
 - Tactical DDD is present in Household; multiple implemented bounded contexts
   and strategic DDD are not established.
 

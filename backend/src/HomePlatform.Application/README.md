@@ -16,8 +16,19 @@ UserManager errors and the recognized PostgreSQL duplicate race to typed,
 Application-owned error codes; framework descriptions do not cross the port.
 The registration slice is committed in `e2fca98`. Bearer sign-in is implemented
 in `4180096` through SignInAccountCommand/Handler, SignInAccountValidator, and
-the IAccountAuthentication port. Refresh remains work in progress: its existing
-contracts are incomplete and no Refresh use case or endpoint is implemented.
+the IAccountAuthentication port. Refresh is implemented through
+RefreshAccountCommand/Handler, RefreshAccountValidator, and IAccountRefresh.
+The handler rejects missing/blank tokens with RefreshTokenRequired and forwards
+nonblank tokens and cancellation unchanged. IdentityAccountRefresh in
+Infrastructure validates expiry and the security stamp, returns the typed
+InvalidRefreshToken failure, or delegates new access/refresh-token issuance to
+the framework bearer handler. API maps anonymous POST /api/accounts/refresh
+and returns Results.Empty after the framework writes AccessTokenResponse.
+
+Permanent Application tests use a recording fake; real-bearer PostgreSQL tests
+prove registration -> sign-in -> refresh -> protected Household request ->
+persisted AccountId, safe errors, deterministic expiry, changed security stamp,
+and anonymous refresh under an authenticated fallback policy.
 
 Assemblies represent architectural layers; top-level Application/API folders
 represent business areas; use-case folders represent concrete operations.
@@ -27,7 +38,7 @@ Identity adapters remain in Infrastructure/Identity.
 
 Application's only project reference is Domain. Its DI registration helper
 uses Microsoft.Extensions.DependencyInjection.Abstractions and registers only
-two scoped validators and three scoped handlers. There is no HTTP, EF Core, or Identity dependency.
+three scoped validators and four scoped handlers. There is no HTTP, EF Core, or Identity dependency.
 Trusted actor identity enters through the Application-owned current-account
 port, never through a client-owned command
 field. See the

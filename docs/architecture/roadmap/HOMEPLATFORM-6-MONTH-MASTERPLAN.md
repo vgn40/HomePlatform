@@ -1,7 +1,7 @@
 # HomePlatform Six-Month Masterplan
 
 Status: **Authoritative strategic roadmap**  
-Last reviewed: **2026-09-09**
+Last reviewed: **2026-09-13**
 Planning horizon: approximately 26 weeks
 
 ## Executive direction
@@ -25,12 +25,15 @@ only current implementation-order document.
 
 ## Current state
 
-As of 2026-09-09, CreateHousehold retains its Testing-only
+As of 2026-09-13, CreateHousehold retains its Testing-only
 actor, contract, and PostgreSQL persistence tests. Identity persistence adds the
 third migration, and registration is committed in `e2fca98`, mapped anonymously in all
-environments. Bearer sign-in is implemented in `4180096`; Refresh remains
-work in progress without a use case or endpoint. The remaining account
-lifecycle, Membership authorization,
+environments. Bearer sign-in is implemented in `4180096`; anonymous refresh is
+implemented and validates expiry/security stamp before issuing new access and
+refresh tokens. Permanent real-bearer PostgreSQL tests prove renewal and a
+protected Household write with the registered AccountId. Current verification
+is 105/105 tests; [next steps](NEXT-STEPS.md#refresh-verification--2026-09-13)
+records the scope. Confirmation, recovery, revocation, Membership authorization,
 deployment, and frontend remain unfinished.
 
 The historical registration baseline was 72/72 tests: Domain 25, Application 11,
@@ -120,10 +123,13 @@ Goal: replace test authentication with a supported first-party Identity flow.
 ### Delivery
 
 - retain the implemented roleless ASP.NET Core Identity store and Guid identity;
-- choose and record one native bearer or browser-cookie mode;
+- record the implemented built-in bearer mode and remaining client/session decisions;
 - retain implemented registration and its UserNameIndex duplicate-race guard;
-- implement confirmation, sign-in, refresh/session, recovery, revocation, and
-  the independent normalized-email lifecycle policy from the security roadmap;
+- retain implemented bearer sign-in and refresh, including expiry/security-stamp
+  and protected-request regression coverage;
+- implement confirmation, recovery, logout/revocation, and the independent
+  normalized-email lifecycle policy; finish client/session and release gates
+  from the security roadmap;
 - preserve the removal of Domain User; do not invent an Account aggregate or
   profile without independent business behavior;
 - define Account validation and verified-link semantics for the Phase 3 workflow;

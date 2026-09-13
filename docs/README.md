@@ -17,8 +17,11 @@ Current implementation includes the Testing-only CreateHousehold path and
 roleless Identity persistence. Account Registration is implemented and committed in
 `e2fca98`, with an anonymous endpoint in every environment and a verified
 historical 72/72-test registration baseline. Bearer sign-in is implemented in
-`4180096`; Refresh remains work in progress without a use case or endpoint.
-The remaining account lifecycle, Household resource authorization, and frontend
+`4180096`; anonymous `POST /api/accounts/refresh` is implemented, validates
+expiry/security stamp, and issues new access/refresh tokens. Permanent
+real-bearer PostgreSQL tests prove refresh and the protected follow-up request;
+[current verification](architecture/roadmap/NEXT-STEPS.md#refresh-verification--2026-09-13)
+records 105/105 passing tests. The remaining account lifecycle, Household resource authorization, and frontend
 remain incomplete. See the
 [2026-09-06 repo audit](architecture/DDD-ARCHITECTURE-AUDIT.md) and its registration follow-up for evidence; historical Phase 1 checks do not certify the registration slice.
 

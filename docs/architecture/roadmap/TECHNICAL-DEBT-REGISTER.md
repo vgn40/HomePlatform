@@ -1,7 +1,7 @@
 # HomePlatform Technical-Debt Register
 
 Status: **Authoritative debt register**  
-Last reviewed: **2026-09-09**
+Last reviewed: **2026-09-13**
 
 Debt is a conscious correctness or maintainability obligation with a trigger
 and exit gate. Unbuilt product scope is not automatically technical debt.
@@ -18,7 +18,7 @@ and exit gate. Unbuilt product scope is not automatically technical debt.
 | ID | Priority | Current evidence | Required action | Exit evidence |
 |---|---|---|---|---|
 | TD-005 | P1 | MembershipId, nullable AccountId, loginless membership, aggregate/database scoped uniqueness, and PostgreSQL round-trip are proven; link/unlink and lifecycle behavior do not exist | implement only explicit authorized link/unlink/lifecycle use cases when their roadmap gate is reached | Domain + PostgreSQL identity/cardinality/concurrency tests pass |
-| TD-010 | P1 | a fake-authenticated Testing-only CreateHousehold endpoint exists and Production is 404; Identity persistence, registration, and bearer sign-in exist, including real-token follow-up tests; Refresh, Account-reference validation, Membership authorization, and IDOR coverage remain incomplete | complete the remaining account lifecycle and Account integrity in Phase 2, then Account-to-Membership authorization and IDOR proof in Phase 3 | security roadmap phase gates pass |
+| TD-010 | P1 | Testing-only CreateHousehold has both test-auth and production-bearer coverage and Production is 404; Identity persistence, registration, sign-in, and Refresh exist, including renewal, expiry/security-stamp rejection, and real-token AccountId persistence tests; confirmation/recovery/revocation, Account-reference validation, Membership authorization, and IDOR coverage remain incomplete | complete the remaining account lifecycle and Account integrity in Phase 2, then Account-to-Membership authorization and IDOR proof in Phase 3 | security roadmap phase gates pass |
 | TD-011 | P1 | last-Owner, Account linking, invitation consumption, and future same-resource edits lack race proof | add database constraints/version/conditional operations and barrier tests | real PostgreSQL proves one winner/valid invariant |
 | TD-013 | P1 | no production container/deploy/observability/backup/restore/export/deletion proof | complete Phase 6 operational and trust work | public-beta gate is evidenced, not asserted |
 | TD-014 | P1 | recurrence/time behavior is undefined | decide IANA zone, DST, missed/edit-series, idempotent occurrence rules | Phase 4 deterministic + PostgreSQL tests pass |

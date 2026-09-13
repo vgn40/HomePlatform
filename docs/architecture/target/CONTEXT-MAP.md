@@ -1,7 +1,7 @@
 # HomePlatform Context Map
 
 Status: **Authoritative context description**  
-Last reviewed: **2026-09-09**
+Last reviewed: **2026-09-13**
 
 ## Current implemented state
 
@@ -10,8 +10,10 @@ slice for creating and persisting a Household with its initial Owner
 Membership. It does not yet have a complete Household lifecycle or fully
 enforced bounded contexts. Roleless Identity persistence and implemented Account
 Registration exist (`e2fca98`; historical registration baseline: 72/72 tests).
-Bearer sign-in is implemented in `4180096`; Refresh remains work in progress
-without a use case or endpoint. The remaining Identity lifecycle is incomplete,
+Bearer sign-in is implemented in `4180096`; anonymous Refresh is implemented,
+validates expiry/security stamp, and issues new access/refresh tokens. Permanent
+real-bearer PostgreSQL tests prove renewed access and the persisted Household
+AccountId. Confirmation/recovery/revocation and release gates remain incomplete,
 as are Tasks & Routines, Shopping, Events, Today, Notifications,
 and Calendar Integration. Folder names alone are not bounded-context evidence.
 
@@ -68,9 +70,11 @@ Language: Account, credential, authentication subject, confirmation, session,
 refresh, lockout, recovery, revocation.
 
 ASP.NET Core Identity remains Infrastructure-owned. Application uses
-ICurrentAccount for actor identity and IAccountRegistration for registration
-input/results; no Identity framework types cross those ports. No household roles
-live in Identity.
+ICurrentAccount for actor identity, IAccountRegistration for registration,
+IAccountAuthentication for sign-in, and IAccountRefresh for renewal. Each Account
+operation keeps its command, handler, validator, port, result, and errors in
+Accounts/Register, Accounts/SignIn, or Accounts/Refresh. No Identity framework
+types cross those ports. No household roles live in Identity.
 
 ### Households
 
