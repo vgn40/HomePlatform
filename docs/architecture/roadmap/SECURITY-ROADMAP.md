@@ -65,13 +65,49 @@ sensitive-log redaction, or shared Data Protection key continuity gates. New
 tokens alone do not prove one-time consumption or server-side replay detection.
 The authenticated fallback policy is a test override, not production policy.
 
+## Adopted deletion and ownership requirements
+
+[DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical. The Account
+FK, protected-request current-Account check, DeleteAccount, LeaveHousehold,
+TransferOwnership and CloseHousehold are NOT YET IMPLEMENTED. Implement in the
+[current next-step order](NEXT-STEPS.md): Account-reference integrity, required
+ownership lifecycle primitives, current-Account validity, then DeleteAccount.
+
+**ADOPTED:** after DeleteAccount successfully commits, new protected product
+requests from that Account must be denied even with an unexpired access token.
+Current opaque access validation does not reload the Account; the existing
+Refresh security-stamp check does not close that gap. Add focused current
+Account existence/validity checking and current Household membership/role
+authorization; no custom session/OAuth framework is required.
+
+**ADOPTED:** a continuing Household has an Account-linked Owner. Last Owner
+requires explicit TransferOwnership to a concrete eligible Account-linked
+person or explicit CloseHousehold. Membership never causes automatic Owner
+promotion. Null AccountId is not anonymization, and Owner does not own other
+people's personal data. The guarding nullable AccountId FK must reject direct
+Identity deletion with unresolved links; no Account-to-HouseholdMember CASCADE
+DELETE or automatic SET NULL.
+
+**ADOPTED:** after ownership resolution, DeleteAccount explicitly deletes all
+HouseholdMember memberships linked to the AccountId across all Households,
+then Identity/ApplicationUser and Account-owned data. Never automatically
+convert memberships to loginless; AccountId remains nullable for separate
+loginless-member flows. The guarding FK rejects unresolved direct deletion;
+it does not perform membership lifecycle on the application's behalf.
+
+Destination acceptance, reauthentication UX, exact access lifetime,
+concrete future feature lifecycles/attribution/history, child policy, retention/backups,
+Article 6 bases, providers/regions, future CloseHousehold record handling and
+precise concurrency/EF APIs remain OPEN. No grace period is adopted.
+
 ## Trust model
 
 Untrusted input includes every path, query, header, body field, mobile state, cached permission, and Guid supplied by a client. Random UUIDs are not authorization.
 
 Trusted inputs are created or validated on the server:
 
-- authenticated subject/AccountId from ASP.NET Core authentication;
+- authenticated subject/AccountId from ASP.NET Core authentication, followed
+  by current Account existence/validity checking for protected product requests;
 - current Membership/role loaded from PostgreSQL for the requested Household;
 - server timestamps and generated invitation/reset/session tokens.
 - configuration from approved secret/configuration providers.
@@ -83,6 +119,9 @@ client request
    |
    v
 authentication middleware -> trusted AccountId
+   |
+   v
+current Account existence/validity check
    |
    v
 Api DTO (client-editable fields only)
@@ -147,7 +186,11 @@ Do not:
 - serialize refresh so concurrent 401s do not create a refresh race.
 - replace the client-held refresh token with the token returned by the framework endpoint, but do not claim one-time rotation, server-side consumed-token replay detection, or per-device revocation. Test and document whether the prior protected token remains reusable until expiry or a security-stamp change.
 - local logout deletes device tokens. Password reset/change and “sign out everywhere” update the Identity security stamp.
-- document that an already issued bearer access token may remain valid until its configured expiration. Test the maximum window.
+- document that current access tickets can remain valid until expiration; the
+  exact lifetime remains OPEN. The adopted DeleteAccount rule is stricter:
+  after successful commit, a current-Account check must deny every new protected
+  product request from that Account regardless of ticket expiry. Test this
+  separately from logout/password-change validity windows.
 
 Before public beta, make an explicit acceptance decision: if the product requires immediate per-device server revocation, device-session inventory, refresh-token reuse detection, social federation, third-party clients, standard OAuth/OIDC/JWT interoperability, or SSO, Identity's simple bearer mode may not suffice. Select an established OAuth/OIDC server/provider and Authorization Code + PKCE rather than extending a custom token server.
 
@@ -157,11 +200,17 @@ If Expo web/browser becomes a first-class client, prefer same-site `HttpOnly`, `
 
 ### Data Protection keys
 
-Persist ASP.NET Core Data Protection keys in an environment-scoped Azure Blob Storage key-ring repository under a stable application name, protect the key material with a versionless environment-scoped Key Vault key identifier, retain old wrapping-key versions for as long as old protected payloads may need decryption, and use least-privilege managed identity for both. Key Vault alone is not the shared key-ring repository. Explicitly selecting external persistence disables default at-rest protection, so both persistence and protection are mandatory. Test authentication plus confirmation/reset-token continuity across replica restart, revision replacement, and wrapping-key rotation. [Data Protection key storage](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/implementation/key-storage-providers?view=aspnetcore-10.0), [Key Vault rotation guidance](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0)
+Hosting/provider/region choices are **OPEN**. Durable protected Data Protection
+keys and continuity tests remain required; the Azure-specific design below is
+**PROPOSED**, conditional on later provider selection, not deployment evidence.
+
+If Azure is selected, persist ASP.NET Core Data Protection keys in an environment-scoped Azure Blob Storage key-ring repository under a stable application name, protect the key material with a versionless environment-scoped Key Vault key identifier, retain old wrapping-key versions for as long as old protected payloads may need decryption, and use least-privilege managed identity for both. Key Vault alone is not the shared key-ring repository. Explicitly selecting external persistence disables default at-rest protection, so both persistence and protection are mandatory. Test authentication plus confirmation/reset-token continuity across replica restart, revision replacement, and wrapping-key rotation. [Data Protection key storage](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/implementation/key-storage-providers?view=aspnetcore-10.0), [Key Vault rotation guidance](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/configuration/overview?view=aspnetcore-10.0)
 
 ## Required security classification
 
-The category is the latest acceptable gate. Work can start earlier.
+The category is the latest acceptable gate. Work can start earlier. Numeric
+phases refer to the masterplan; letters A–G refer to the adopted deletion
+dependencies. NEXT-STEPS owns the current implementation order.
 
 | Topic | Classification | Phase | Blocking acceptance condition |
 |---|---|---:|---|
@@ -181,7 +230,8 @@ The category is the latest acceptable gate. Work can start earlier.
 | HTTPS | BEFORE MULTI-USER FEATURES | 2/6 | every non-loopback environment handles credentials/tokens only over TLS; proxy/forwarded headers correct. |
 | CORS | BEFORE PUBLIC BETA | 5/6 | native needs none; if web exists, exact environment origins/methods/headers and credentials policy tested. |
 | Secrets management | NOW | 1/6 | Phase 1 now: only disposable examples in source, local user-secrets/environment, startup validation. Before public beta: managed deployment store/identity and missing-secret fail-closed proof. |
-| Export/deletion/shared-record fate | BEFORE PUBLIC BETA | 6 | authorized export, deletion/retention rules, and shared-data outcomes are documented and tested. |
+| Account-reference integrity and deletion access | BEFORE DELETEACCOUNT / REAL-USER RELEASE | A–E in deletion design | guarding nullable AccountId FK, explicit last-Owner resolution and current-Account checks implemented; atomic all-membership deletion and post-commit denial proven. |
+| Export/deletion/shared-record fate | BEFORE REAL-USER RELEASE | F/G in deletion design | authorized export, approved retention and shared-data outcomes implemented/tested; unresolved legal/provider/backup decisions completed. |
 | Production configuration | BEFORE PUBLIC BETA | 6 | restricted hosts, correct proxy/TLS, safe non-development logging/errors, no development OpenAPI/sample credentials. |
 | Database least privilege | BEFORE PUBLIC BETA | 6 | runtime role cannot change schema; separate migration identity; TLS, backup, and restore proven. |
 | Secure error handling | NOW | 1 onward | stable ProblemDetails; no stack, SQL/provider text, connection strings, tokens, or unauthorized existence leakage. |
@@ -217,7 +267,12 @@ This is a starting product decision to validate in Phase 3. Unspecified actions 
 | Create/update events | yes | yes | no |
 | View Today/content | yes | yes | yes, if product confirms read-only access |
 
-Domain invariants still apply even to Owner: the last Owner cannot be removed/demoted/leave without a transfer.
+Domain invariants still apply even to Owner: a continuing Household must retain
+an Account-linked Owner. Last-Owner departure requires explicit TransferOwnership
+or explicit CloseHousehold under the adopted deletion design. No Member/Guest
+is automatically promoted, and a loginless HouseholdMember cannot be Owner.
+Exact endpoint/permission details for the new lifecycle operations remain for
+implementation review; the illustrative matrix does not replace these rules.
 
 ### 401/403/404 policy
 
@@ -238,6 +293,7 @@ Create test actors:
 - Household A Owner, Member, and Guest.
 - Household B Owner who is a nonmember of A.
 - removed/expired Household A member with a still-valid access token.
+- deleted Account with a previously issued, unexpired access token.
 
 Create Household A/B resources and test every read/list/create/update/delete/role/invite/assignment operation:
 
@@ -249,10 +305,15 @@ Create Household A/B resources and test every read/list/create/update/delete/rol
 - random and known foreign UUIDs have no data leak.
 - list/search/count/pagination returns only accessible rows.
 - bulk operation authorizes every child.
-- removed member loses access even while authentication remains valid.
+- removed member loses Household access even while its Account remains valid.
+- deleted Account cannot make new protected product requests after deletion commit.
 - request-supplied creator/owner/Account ID cannot override authenticated identity.
 - self-promotion, unauthorized role escalation, and last-owner removal fail.
-- every membership mutation changes a Household version concurrency token; barrier-based concurrent demote/remove/leave/transfer attempts preserve at least one Owner and a stale writer receives 409.
+- concurrent demote/remove/leave/transfer/close and Account deletion attempts
+  preserve an Account-linked Owner in every continuing Household or complete an
+  approved explicit closure. Prove rollback and recognized conflicts with real
+  PostgreSQL; the precise concurrency strategy is OPEN, not a mandated version
+  token or EF API.
 - invitation acceptance uses one use-case-specific transaction over Invitation and Household; it binds the verified actor to the target and atomically consumes exactly one pending/unrevoked/unexpired row through a concurrency token or conditional update. A unique token-hash index, injected mid-transaction failure, duplicate requests, and two different authenticated acceptors prove single-use safety.
 - failure produces no row, email, or later outbox message.
 - response DTO exposes no Identity password hash/security stamp or unauthorized properties.
@@ -293,13 +354,38 @@ Concurrent_owner_transfers_preserve_at_least_one_owner
 - refresh returns working new tokens and the client replaces its held token; test/document prior-token reuse until expiry/security-stamp change rather than asserting one-time consumption.
 - security stamp/password change blocks refresh and bounds old access validity.
 - device logout removes local credentials; sign-out-everywhere semantics are separately proven.
-- Blob-persisted, Key-Vault-protected Data Protection keys preserve authentication and confirmation/reset tokens across replica restart, revision replacement, and versionless wrapping-key rotation; old Key Vault key versions remain retained.
+- the selected Data Protection persistence/protection design preserves authentication
+  and confirmation/reset tokens across replica restart, revision replacement and
+  key rotation. Blob/Key Vault is a PROPOSED option; provider/region and relevant
+  retention decisions remain OPEN.
 
 ### Recovery
 
 - forgot-password returns generic response for known/unknown email.
 - reset token expires/cannot be reused and is bound to the user/purpose.
 - password reset changes security stamp and old credentials/session behavior matches the documented decision.
+
+### DeleteAccount and Household lifecycle — required future proof
+
+- resolve ownership across all Households, then explicitly delete every
+  Account-linked membership before Identity deletion; prove no loginless conversion;
+- non-last-Owner departure preserves the Household and other people's roles;
+- unresolved last Owner blocks deletion; explicit eligible transfer or closure
+  is required, including when loginless children remain;
+- no automatic promotion, no Owner with null AccountId, no ownerless continuation;
+- direct Identity deletion cannot cascade/delete/null unresolved memberships;
+- approved lifecycle plus Identity deletion commits atomically, with rollback
+  and concurrency evidence; precise concurrency implementation remains OPEN;
+- previously issued access/refresh tokens cannot restore product access after
+  Account deletion; exact access lifetime remains an independent OPEN choice;
+- test the adopted Account-linked membership deletion rule and later concrete
+  feature/shared-data and reauthentication decisions; no grace period or
+  retention “just in case”;
+- each persisted feature follows the
+  [lifecycle checklist](../../privacy/DELETION-DESIGN.md#feature-lifecycle-checklist):
+  remove unnecessary personal references from surviving shared records, prevent
+  accidental reference disclosure, define missing-attribution UI and verify
+  feature-specific deletion without treating nulling as proven anonymization.
 
 ## API and operational controls
 
@@ -328,7 +414,9 @@ Use ASP.NET Core's built-in rate-limiting middleware and attach named policies t
 
 - loopback HTTP can remain for development.
 - non-loopback auth traffic requires TLS.
-- configure trusted forwarded headers for Azure's proxy before auth redirects/scheme-sensitive behavior. Avoid redirect loops and do not trust arbitrary forwarded headers.
+- configure trusted forwarded headers for the selected hosting proxy before auth
+  redirects/scheme-sensitive behavior; provider choice remains OPEN. Avoid
+  redirect loops and do not trust arbitrary forwarded headers.
 - let the hosting edge enforce HTTPS/HSTS where appropriate, and make application behavior match it. [ASP.NET Core proxy guidance](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0)
 - CORS is not authentication and does not affect native clients; allow exact web origins only.
 
@@ -337,7 +425,8 @@ Use ASP.NET Core's built-in rate-limiting middleware and attach named policies t
 - source: names/placeholders/disposable local defaults only.
 - developer machine: environment/user-secrets, never committed `.env` secrets.
 - CI: protected environment secrets or workload identity.
-- Azure: managed identity to Key Vault/other managed services where supported.
+- PROPOSED if Azure is selected: managed identity to Key Vault/other managed
+  services where supported; no provider is adopted here.
 - validate required options at startup and fail closed.
 - rotate credentials/keys and test application behavior.
 
@@ -379,7 +468,8 @@ Log event name, safe pseudonymous user/resource identifiers, request/trace ID, o
 - permission matrix and complete Household IDOR suite green.
 - Account linking is explicitly authorized, preserves Membership identity, and
   rejects duplicate scoped links under concurrency.
-- Household version concurrency plus barrier-based PostgreSQL tests preserve the last-owner invariant.
+- PostgreSQL race tests preserve an Account-linked Owner in continuing Households
+  and explicit closure semantics; precise concurrency strategy remains OPEN.
 - invitation acceptance commits Invitation and Household once or rolls both back under injected failure/concurrency.
 - conditional invitation consume binds the verified target and permits exactly one winner across duplicate/different-actor attempts.
 
@@ -393,14 +483,21 @@ Log event name, safe pseudonymous user/resource identifiers, request/trace ID, o
 
 - real verification/reset email, rate limits, CORS policy if web, restricted
   production hosts/proxies, safe errors/configuration, isolated environments,
-  least privilege, Blob-persisted and Key-Vault-protected keys with retained
-  rotation versions, additive migration/rollback proof, dependency/container
+  least privilege, persistent protected Data Protection keys with tested
+  rotation/continuity under the selected provider design, additive migration/rollback proof, dependency/container
   scans, backup/restore, export/deletion/shared-record-fate behavior, redaction,
   and session/revocation decisions proven in staging.
 
-### Production gate
+### Production / real-user privacy gate
 
-- post-beta operating controls—key/secret rotation rehearsal, incident/alert/runbook ownership, retention/privacy policy, recovery evidence, and final threat review—are green.
+- Before real-user release, resolve controller/legal-basis, hosting/provider/
+  region, retention and backup decisions; verify the adopted deletion/access
+  behavior, rights handling, privacy information, recovery, key/secret rotation,
+  incident/alert/runbook ownership and final security review.
+- The broader phase labels do not postpone these privacy/security requirements
+  until after real users enter beta. The initial
+  [privacy documents](../../README.md#privacy-and-lifecycle) record open facts,
+  not proof of compliance or production readiness.
 
 ## Things security does not justify yet
 

@@ -67,7 +67,7 @@ Application orchestration -> email, push, and calendar adapters when triggered
 ### Identity & Access
 
 Language: Account, credential, authentication subject, confirmation, session,
-refresh, lockout, recovery, revocation.
+refresh, lockout, recovery, revocation, DeleteAccount.
 
 ASP.NET Core Identity remains Infrastructure-owned. Application uses
 ICurrentAccount for actor identity, IAccountRegistration for registration,
@@ -79,13 +79,47 @@ types cross those ports. No household roles live in Identity.
 ### Households
 
 Language: Household, Membership, Owner, Member, Guest, Invitation, join, leave,
-remove, transfer, link Account.
+remove, link Account, LeaveHousehold, TransferOwnership, CloseHousehold.
 
 Households owns stable `MembershipId`, optional verified `AccountId`, scoped
 duplicate protection, last-Owner consistency, and resource-authorization facts.
 The first three are represented in the current model; verified link lifecycle,
 last-Owner transitions, and resource authorization remain. Family relationships
 never grant authority implicitly.
+
+### Account and Household lifecycle coordination
+
+**ADOPTED:** [DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) separates
+Account identity data, the departing person's data/memberships, other people's
+data and shared Household/domain data. DeleteAccount coordinates all Household
+memberships through explicit lifecycle before deleting Identity. Households
+owns LeaveHousehold, explicit TransferOwnership and CloseHousehold rules; none
+of these workflows is implemented yet.
+
+Membership never implies ownership. A continuing Household retains an
+Account-linked Owner; last Owner explicitly transfers to a concrete eligible
+Account-linked person or closes. Loginless members cannot become Owner and may
+still represent real people. Owner is a Household role, not ownership of those
+people's personal data. Shared record ownership is distinct from Account
+ownership. DeleteAccount membership fate is ADOPTED: explicitly delete all
+memberships linked to the AccountId after ownership resolution, then delete
+Identity/ApplicationUser and Account-owned data. Do not convert those
+memberships to loginless. Nullable AccountId remains for separate loginless
+creation/management. Concrete future attribution/history remains OPEN.
+
+Each feature owns its persisted record lifecycle, using the
+[canonical checklist](../../privacy/DELETION-DESIGN.md#feature-lifecycle-checklist).
+Account/Membership deletion is not a cascade policy for every shared record.
+Feature rules decide continued purpose and survival; remove unnecessary person
+references and define missing-attribution UI. Do not invent a generic usage
+heuristic, replacement identity or anonymization claim from a null reference.
+
+Infrastructure must later enforce the guarding nullable AccountId FK to
+AspNetUsers.Id; this physical constraint does not move Identity types into
+Domain. Protected product requests need current-Account validity as well as
+Household membership authorization. Reuse concrete deletion operations for
+appropriate privacy requests without introducing a generic privacy context or
+GdprService/PrivacyService.
 
 ### Tasks & Routines
 

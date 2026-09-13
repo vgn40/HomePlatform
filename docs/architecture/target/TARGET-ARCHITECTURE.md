@@ -14,7 +14,8 @@ boundaries, the [domain model](DOMAIN-MODEL.md) owns DDD terminology, and the
 
 ## Current architecture
 
-As of 2026-09-13, with bearer sign-in committed in `4180096` and Refresh implemented in the working tree:
+As of source inspection on 2026-09-13 at `main@07eeb12`, with bearer sign-in
+committed in `4180096` and Refresh in `635d181`:
 
 - four production projects follow the dependency graph below;
 - Domain contains Household and its HouseholdMember entities, HouseholdRole,
@@ -220,6 +221,38 @@ concurrency, and assignment/history preservation remain follow-up work. A shared
 database alone does not validate an Account reference. No global Person context
 or general capability engine is justified.
 
+### Adopted Account deletion and ownership lifecycle
+
+[DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical for
+DeleteAccount, LeaveHousehold, TransferOwnership and CloseHousehold. All four
+are NOT YET IMPLEMENTED. Account deletion resolves every Household membership;
+it is not implicit Household deletion. Membership never implies ownership or
+automatic promotion. A continuing Household must retain an Account-linked
+Owner; its departing last Owner explicitly transfers to a concrete eligible
+Account-linked person or explicitly closes the Household.
+
+Loginless people can still have personal data. Shared Household/domain data
+and data about other people are not owned by one Account because it has the
+Owner role. **ADOPTED:** DeleteAccount explicitly deletes all Account-linked
+memberships after ownership resolution, then Identity/ApplicationUser and
+Account-owned data. No silent loginless conversion occurs; AccountId remains
+nullable for separate loginless-member flows. Stable MembershipId is not a
+blanket retention rule. Concrete future attribution/history remains OPEN.
+
+Every persisted feature must complete the
+[lifecycle checklist](../../privacy/DELETION-DESIGN.md#feature-lifecycle-checklist):
+scope, personal references, leave/deletion/closure, surviving/person-dependent
+records, attribution UI and export/retention/privacy impact. Feature/data-type
+rules decide shared-record survival, not a generic runtime usage heuristic.
+Remove unnecessary personal references, delete person-dependent data without a
+continuing purpose, and do not equate null references with anonymization.
+
+DeleteAccount requires one focused atomic boundary over the approved Household
+lifecycle changes and Identity deletion across all memberships. Do not compose
+independently committed deletions. Exact transaction/concurrency mechanics and
+EF APIs remain OPEN implementation details; no generic UnitOfWork or privacy
+service is justified.
+
 ## Persistence
 
 - EF configurations and migrations live in Infrastructure.
@@ -238,8 +271,15 @@ or general capability engine is justified.
 Current persistence uses MembershipId as the member primary key, a required
 HouseholdId foreign key with cascade delete, and a unique unfiltered index on
 (HouseholdId, AccountId). PostgreSQL permits multiple null AccountIds. No active
-membership flag/filter or Account foreign key exists. Future inactive-membership
-and Account-reference integrity semantics require an explicit decision.
+membership flag/filter or Account foreign key exists. **ADOPTED, NOT YET
+IMPLEMENTED:** add a nullable HouseholdMember.AccountId FK to AspNetUsers.Id
+with rejecting deletion behavior. DeleteAccount explicitly removes all linked
+memberships after ownership resolution and before Identity deletion; no
+Account-to-HouseholdMember CASCADE DELETE or
+automatic SET NULL. Exact EF DeleteBehavior API and PostgreSQL mapping remain
+OPEN implementation details to verify. The existing Household-to-member
+cascade is a different relationship and does not authorize implicit closure.
+Future inactive-membership semantics remain OPEN.
 
 Database guarantees are narrower than all Domain invariants: name nullability
 and length and linked-account uniqueness are mapped; nonblank names, valid role
@@ -252,6 +292,7 @@ alternate write paths. EF materialization does not rerun the public constructor.
 ```text
 ASP.NET Core authentication
   -> trusted AccountId
+  -> check current Account existence/validity for protected product requests
   -> resolve current Membership for HouseholdId
   -> apply role/resource policy
   -> execute authorized use case
@@ -261,6 +302,11 @@ ASP.NET Core authentication
 - Household roles are not global Identity roles or long-lived claims.
 - `RequireAuthorization()` proves authentication, not resource access.
 - Every object/Household identifier is authorized server-side.
+- ADOPTED, NOT YET IMPLEMENTED: after successfully committed DeleteAccount,
+  deny new protected product requests even with an unexpired access token.
+  Current opaque access validation does not reload Account state; add focused
+  current-Account validation alongside resource membership checks. Exact token
+  lifetime is OPEN and cannot replace this requirement.
 - Missing or malformed subject identity produces 401 and zero mutation.
 - Use one documented first-party authentication mode; do not invent custom
   password/token cryptography.
@@ -301,10 +347,12 @@ detailed trust model and release gates.
 
 ## Deployment target
 
-The six-month target is one immutable API container on Azure Container Apps and
-Azure Database for PostgreSQL Flexible Server, with isolated staging/production
-data, identities, secrets, and configuration. CI builds/tests/scans once; CD
-promotes the same artifact with explicit migration and rollback gates.
+One immutable API container and PostgreSQL with isolated staging/production
+data, identities, secrets and configuration remain the architecture direction.
+Hosting, providers and regions are **OPEN**. The earlier Azure Container Apps /
+Azure Database for PostgreSQL Flexible Server design is **PROPOSED**, not an
+adopted provider decision or evidence of deployment. CI builds/tests/scans once;
+CD promotes the same artifact with explicit migration and rollback gates.
 
 Before public beta, prove least privilege, secret rotation, shared Data
 Protection key continuity, health, structured logs, metrics/alerts, backup,
@@ -318,7 +366,7 @@ number, future feature name, or portfolio goal does not trigger infrastructure.
 | Timing | Candidate | Problem/trigger and simplest first response |
 |---|---|---|
 | Now | Four layers, explicit handlers, aggregate repository, one DbContext | Keep the existing use-case, Domain, and persistence separation. No structural rewrite. |
-| Next | Dependency guards and remaining account lifecycle | Registration, bearer sign-in, and Refresh have permanent coverage. Guard framework as well as project dependencies; complete confirmation/recovery/revocation and release gates. |
+| Next | Account-reference integrity, required Household lifecycle, current-Account validation, then DeleteAccount | Follow NEXT-STEPS and the deletion design. Dependency guards and confirmation/recovery/revocation remain gates; no new generic privacy/session framework. |
 | Next, with first read | Queries/read DTOs | Project authorized data from the same PostgreSQL database; do not hydrate aggregates for display. |
 | Later if needed | Bounded context split | Independent language, invariants, model, lifecycle, ownership, and reasons to change are demonstrated; start with folders/contracts. |
 | Later if needed | Domain events | One domain action has multiple independent reactions and direct orchestration becomes coupled. Start in process and decide before/after-commit semantics. |

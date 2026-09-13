@@ -23,6 +23,20 @@ implemented and verified. The complete Phase 2 exit gate remains open.
 For the next executable actions, use [NEXT-STEPS.md](NEXT-STEPS.md). It is the
 only current implementation-order document.
 
+### Adopted lifecycle priority — 2026-09-13
+
+The [deletion design](../../privacy/DELETION-DESIGN.md) brings the Account
+deletion dependencies forward: decisions documented, Account-reference
+integrity, required LeaveHousehold/TransferOwnership/CloseHousehold support,
+protected-request current-Account validity, then DeleteAccount. ExportMyData /
+rectification follows; production privacy/security gates precede real-user
+release. These operations and guards are NOT YET IMPLEMENTED.
+
+Account-reference integrity is the next CODE task. This dependency sequence
+overrides the broad phase placement below where necessary; it does not require
+the entire invitation/collaboration feature set before DeleteAccount. Later
+phases reuse the primitives rather than implementing them again.
+
 ## Current state
 
 As of 2026-09-13, CreateHousehold retains its Testing-only
@@ -60,7 +74,8 @@ In scope:
 - basic internal events only if earlier gates and capacity permit;
 - PostgreSQL migrations and concurrency proof;
 - CI/CD, observability, security hardening, export/deletion behavior, and one
-  reproducible Azure beta environment.
+  reproducible beta environment; hosting/provider/region remain OPEN and Azure
+  is a PROPOSED option.
 
 Out of scope unless an explicit gate changes it:
 
@@ -77,7 +92,8 @@ Out of scope unless an explicit gate changes it:
 2. Actor identity is server-derived; no request/command chooses it.
 3. Each write traces API -> Application -> Domain -> focused port -> one commit.
 4. Persistence and concurrency claims use real PostgreSQL/Testcontainers.
-5. No phase starts before the prior exit gate passes.
+5. Follow NEXT-STEPS for the adopted lifecycle dependency order; broader feature
+   phases still respect their security/quality exit gates.
 6. A proposed ADR is a stop-gate, not implementation authority.
 7. Scope is reduced before quality, security, or data-integrity gates.
 
@@ -132,8 +148,9 @@ Goal: replace test authentication with a supported first-party Identity flow.
   from the security roadmap;
 - preserve the removal of Domain User; do not invent an Account aggregate or
   profile without independent business behavior;
-- define Account validation and verified-link semantics for the Phase 3 workflow;
-  implement linking once under the collaboration gate, not twice across phases;
+- implement Account-reference integrity first, then the required Household
+  lifecycle primitives/current-Account check and DeleteAccount in NEXT-STEPS
+  order; keep wider verified linking/invitations under their collaboration gate;
 - prove migration upgrades from the Phase 1 schema and data strategy;
 - normalize public auth failures while preserving protected telemetry.
 
@@ -151,9 +168,11 @@ Goal: make multi-person Household collaboration secure and lifecycle-complete.
 
 - list current Account's Households and members;
 - invite, accept, revoke/resend, add loginless Membership if approved, link
-  Account, rename, leave/remove, change role, and transfer ownership;
+  Account, rename/remove and change role; reuse LeaveHousehold, explicit
+  TransferOwnership and CloseHousehold primitives brought forward for deletion;
 - enforce Account -> Membership -> Household resource authorization;
-- preserve at least one Owner under concurrent mutations;
+- preserve an Account-linked Owner in continuing Households under concurrency;
+  last Owner explicitly transfers or closes, never automatically promotes;
 - atomically consume one valid invitation and add Membership;
 - instrument invitation and first-shared-action activation funnel;
 - perform a provider-agnostic calendar-integration design spike only.
@@ -173,7 +192,9 @@ Goal: provide reliable household responsibility coordination.
 - create, update, assign by Membership, complete, reopen, and archive tasks;
 - add deliberately limited recurrence with IANA timezone, DST, missed
   occurrence, edit-one/edit-series, and idempotent occurrence semantics;
-- preserve completion attribution/history by Membership identity;
+- use MembershipId for completion attribution/history; decide personal-data
+  removal/retention before these records ship, rather than treating stable
+  identity as permanent retention.
 - define notification recipient, preference, quiet-hours, deduplication, and
   status semantics;
 - add a small worker/delivery table only if a beta reminder must fire without a
@@ -217,7 +238,9 @@ Goal: make the product reproducibly operable and honestly beta-ready.
 - structured logs, trace IDs, metrics, alerts, and runbooks;
 - backup, restore, rollback, and deployment observation proof;
 - rate limiting, dependency/vulnerability gates, and security review;
-- machine-readable export, deletion, and shared-record-fate behavior;
+- verify machine-readable export and deletion/shared-record behavior built in
+  the current lifecycle sequence; settle retention/backups, provider/region and
+  legal/privacy facts before real-user release;
 - load/concurrency tests at measured risks;
 - React Native/Expo client only against stable secured contracts.
 

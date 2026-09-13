@@ -1,7 +1,7 @@
 # HomePlatform Domain Model
 
 Status: **Authoritative current-versus-target DDD description**  
-Last reviewed: **2026-09-06**
+Last reviewed: **2026-09-13**
 
 ## Current implemented state
 
@@ -29,7 +29,7 @@ Source inspection shows these early rules:
 - the Household constructor rejects an empty Owner AccountId and creates
   one Owner Membership;
 - HouseholdMember generates MembershipId and rejects empty AccountId/undefined
-  roles;
+  roles, including Owner with null AccountId;
 - `AddMember` can create a loginless Membership and rejects duplicate linked
   AccountId within one Household instance;
 - member addition updates `UpdatedAt`;
@@ -97,10 +97,40 @@ Households
 - one Account may link to Memberships in several Households;
 - one non-null Account link per `(HouseholdId, AccountId)` is enforced; the
   current schema has no active/inactive state or filtered index;
-- the target link/unlink use case must preserve MembershipId, assignments,
-  and history; that workflow is not implemented;
+- approved link/unlink behavior must preserve MembershipId while retaining the
+  Membership; that workflow is not implemented. DeleteAccount explicitly
+  deletes Account-linked memberships after ownership resolution, without
+  loginless conversion. Concrete future attribution/history remains OPEN;
+  identity stability does not require indefinite data retention;
 - a global Person/Profile is not introduced without independent behavior and
   cross-household ownership rules.
+
+### Adopted ownership and deletion rules
+
+[DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical. Membership
+never implies ownership; there is no automatic Owner promotion. Owner requires
+a real Account. Last Owner must explicitly TransferOwnership to a concrete
+eligible Account-linked person or CloseHousehold; a continuing Household cannot
+be ownerless. Destination acceptance remains OPEN.
+
+DeleteAccount, LeaveHousehold, TransferOwnership and CloseHousehold are
+different, NOT YET IMPLEMENTED lifecycles. DeleteAccount resolves all of an
+Account's Household memberships, including loginless-person/shared-data
+consequences. Null AccountId is not anonymization. A future guarding nullable
+FK to AspNetUsers.Id must reject unresolved Identity deletion, with no automatic
+Account-to-member cascade or SET NULL. Domain retains framework independence;
+precise EF/concurrency choices remain OPEN. DeleteAccount membership fate is
+ADOPTED: delete all Account-linked memberships after ownership resolution,
+before Identity deletion. AccountId remains nullable for separate loginless
+creation/management.
+
+Each persisted feature must define its scope and personal references, separate
+leave/deletion/closure behavior, and surviving versus person-dependent records
+using the [lifecycle checklist](../../privacy/DELETION-DESIGN.md#feature-lifecycle-checklist).
+Creator identity does not imply Account ownership of shared data. Remove
+unnecessary references from records that survive under explicit feature rules;
+nulling alone is not verified anonymization. Concrete Task/Shopping/Event/
+Routine lifecycle and attribution/history decisions remain OPEN.
 
 ## Aggregate reasoning
 

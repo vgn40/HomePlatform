@@ -54,6 +54,17 @@ Read:
 - [Technical-debt register](roadmap/TECHNICAL-DEBT-REGISTER.md) is the
   authoritative debt list.
 
+## Adopted Account and Household lifecycle
+
+[DELETION-DESIGN.md](../privacy/DELETION-DESIGN.md) owns the current deletion and
+ownership decisions. Account and Household lifecycles remain separate; the last
+Owner must explicitly transfer or close, and no Membership is automatically
+promoted. Owner always requires a real Account. Add the guarding nullable
+AccountId FK, explicit lifecycle operations, and protected-request
+current-Account validation before DeleteAccount. These are adopted follow-up
+requirements, NOT YET IMPLEMENTED. Account-reference integrity is the next CODE
+task; open policy and mapping/concurrency details remain in the canonical design.
+
 ## Decision-relevant research
 
 - [Competitor impact on DDD](research/COMPETITOR-IMPACT-ON-DDD.md)

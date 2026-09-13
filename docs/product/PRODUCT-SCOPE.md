@@ -1,7 +1,7 @@
 # HomePlatform Product Scope
 
 Status: **Authoritative product scope for the six-month beta**  
-Last reviewed: **2026-09-07**
+Last reviewed: **2026-09-13**
 
 ## Product thesis
 
@@ -23,8 +23,8 @@ alone does not establish sign-in, verified identity, or Household authorization.
 
 | Capability | Target | Product constraint |
 |---|---|---|
-| Account lifecycle | register, verify, sign in, recover, revoke | trusted framework identity; no custom auth protocol |
-| Household | create, rename, list | protected collaboration boundary |
+| Account lifecycle | register, verify, sign in, recover, revoke, DeleteAccount | explicit multi-Household resolution; immediate protected-request denial after deletion commit |
+| Household | create, rename, list, CloseHousehold | protected collaboration boundary; closure is explicit |
 | Membership | Owner/Member/Guest, invite, join, leave/remove/transfer | role is authority, not family relationship |
 | Loginless participant | model support implemented under accepted ADR 0006 | identity flexibility now; specialized child UI later |
 | Tasks | create, assign, complete/reopen, history | assignment by Membership identity under ADR 0006 |
@@ -39,12 +39,47 @@ alone does not establish sign-in, verified identity, or Household authorization.
 - Account authentication and Household participation are different lifecycles;
   their separation is accepted in
   [ADR 0006](../architecture/adr/0006-separate-account-and-household-membership-identity.md).
-- One Account may need Memberships in several Households.
+- One Account can have memberships in several Households; DeleteAccount must
+  resolve all of them.
 - Owner/Member/Guest express authorization. Parent/Child/Partner/Grandparent
   describe relationships and do not automatically grant access.
 - Today is a read surface over several modules, not a new write model.
 - Recurrence, reminders, and collaboration quality matter more than a long
   checklist of shallow features.
+
+## Adopted deletion and ownership lifecycle
+
+[DELETION-DESIGN.md](../privacy/DELETION-DESIGN.md) is canonical. DeleteAccount,
+LeaveHousehold, TransferOwnership and CloseHousehold are distinct, adopted
+operations and are NOT YET IMPLEMENTED. A continuing Household needs an Owner
+linked to a real Account. Membership and family relationships never cause
+automatic Owner promotion. The last Owner must explicitly transfer to a concrete
+eligible Account-linked person or explicitly close the Household.
+
+Deletion must distinguish the departing person's data/memberships, other
+people's data (including loginless children), and shared Household data. Owner
+is an authority role, not ownership of another person's personal data. A
+Household used only by the departing Account can be explicitly closed with
+clear information that its data will be deleted; no grace period is adopted.
+
+**ADOPTED:** after ownership rules are resolved, DeleteAccount explicitly
+deletes every HouseholdMember linked to the AccountId across all Households,
+then Identity/ApplicationUser and Account-owned data. Memberships are never
+silently converted to loginless; AccountId remains nullable because loginless
+creation/management is a separate supported flow.
+
+Every persisted feature must define record scope, personal references,
+LeaveHousehold/DeleteAccount/CloseHousehold, surviving versus person-dependent
+records, missing-attribution UI and export/retention/privacy consequences. Use
+the [feature lifecycle checklist](../privacy/DELETION-DESIGN.md#feature-lifecycle-checklist).
+Creator deletion does not automatically delete legitimate shared records;
+explicit feature rules decide their lifecycle. Remove unnecessary person
+references and do not retain personal data “just in case” or claim nulling
+alone anonymizes it.
+
+Destination acceptance, concrete future feature lifecycles/attribution/history,
+reauthentication UX, child-account policy, retention and backup periods remain
+OPEN. The canonical design lists all open decisions and required release gates.
 
 ## Deferred product scope
 
@@ -77,7 +112,8 @@ They must not be added as fields on Household or Task.
 
 - a new Account can securely create and activate a Household;
 - invited participants reach a first shared action with low friction;
-- assignments and history survive approved Membership lifecycle changes;
+- assignments/history follow explicit feature lifecycle rules when memberships
+  change or are deleted, including removal of unnecessary personal references;
 - tasks/routines and shopping behave predictably under retries/concurrency;
 - Today is useful without mutating data;
 - users can understand export/deletion/shared-data consequences;

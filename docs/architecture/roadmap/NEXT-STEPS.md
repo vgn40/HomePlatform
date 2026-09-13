@@ -90,33 +90,65 @@ All 86 tests passed: Domain 25, Application 11, Integration 50; none skipped.
 `git diff --check` passed. This is local verification, not hosted CI or
 deployment evidence.
 
-### Now: remaining boundary and release gates
+### Now: adopted privacy/lifecycle implementation order
 
-1. Strengthen architecture tests to guard forbidden frameworks/packages and
-   project-reference metadata. No new architecture-test framework is necessary.
-2. Keep production exposure aligned with the release decision. Registration is
-   mapped anonymously alongside sign-in and refresh in every environment;
-   TLS, throttling, and broader auth
-   error-policy gates remain open. A passing test host is not deployment proof.
-3. Retain the current UserName=email uniqueness guard. The security roadmap's
-   independent NormalizedEmail policy and future email/username changes still
-   require explicit lifecycle and migration decisions.
+The 2026-09-13 documentation task began with a clean `main@07eeb12`. The current
+decisions are recorded in [DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md),
+with the [ADR 0006 addendum](../adr/0006-separate-account-and-household-membership-identity.md#current-decision-addendum--2026-09-13).
+This order supersedes the earlier “remaining account lifecycle, then
+collaboration” sequence; historical Phase 1/Refresh evidence below is retained.
 
-### Next: remaining account lifecycle, then collaboration
+| Order | Work | Status / gate |
+|---|---|---|
+| 1 / Phase A | Privacy/lifecycle decisions documented | ADOPTED; unresolved policy questions remain OPEN in the canonical design |
+| 2 / Phase B | Account-reference integrity | NEXT CODE TASK; nullable HouseholdMember.AccountId FK to AspNetUsers.Id with rejecting deletion, justified lookup index only, real Identity-seeded fixtures and PostgreSQL constraint proof |
+| 3 / Phase C | Required ownership lifecycle support | NOT YET IMPLEMENTED: LeaveHousehold, explicit TransferOwnership, explicit CloseHousehold, required authorization/invariants and concurrency proof |
+| 4 / Phase D | Protected-request Account validity | NOT YET IMPLEMENTED: current Account existence/validity; Household access also checks current membership |
+| 5 / Phase E | DeleteAccount | NOT YET IMPLEMENTED: ownership resolved across all Households, all Account-linked memberships explicitly deleted without loginless conversion, unresolved last Owner refused, lifecycle and Identity deletion atomic, future protected requests denied |
+| 6 / Phase F | ExportMyData / rectification / ChangeEmail and wider privacy rights | Later; resolve scope, authority, email lifecycle and legal questions |
+| 7 / Phase G | Production privacy/security gates | Before real-user release: retention/backups/restore, providers/regions, operational proof and remaining security controls |
 
-Continue confirmation, recovery, and logout/revocation, including explicit
-prior-refresh-token reuse and old-access-token validity semantics. Complete rate
-limiting, client token storage, and Data Protection continuity release gates.
-Registration, bearer sign-in, refresh expiry/security-stamp rejection, and
-protected follow-up requests already have real HTTP/PostgreSQL tests without
-the fake scheme. Define Account-reference integrity before exposing real Household
-writes, then implement Membership authorization and the first mutation with
-concurrency proof. Keep Household creation Testing-only until the remaining
-resource-authorization and release gates pass.
+**Account-reference integrity is the next CODE task.** Review current rows and
+test fixtures before a migration; existing tests can use random AccountIds
+without Identity rows. Do not silently remove/null orphan links. Verify the
+chosen EF DeleteBehavior and PostgreSQL behavior, including tracked dependents,
+nullable links, invalid references and rejected direct Identity deletion. No
+precise API, Account lookup index or concurrency mechanism is predetermined.
 
-The [repo audit](../DDD-ARCHITECTURE-AUDIT.md) owns point-in-time evidence and
-findings. The sections below retain Phase 1 acceptance detail for reference;
-their historical counts are separate from the 72-test registration baseline.
+DeleteAccount membership fate is now **RESOLVED**: after ownership resolution,
+explicitly delete every Account-linked membership across all Households, then
+Identity/ApplicationUser and Account-owned data. Do not convert memberships to
+loginless; nullable AccountId remains for separate loginless-member flows.
+Last Owner requires explicit transfer to an eligible Account-linked person or
+closure, never automatic promotion. This does not decide standalone
+LeaveHousehold or future feature lifecycles.
+
+Each persisted feature must complete the
+[lifecycle checklist](../../privacy/DELETION-DESIGN.md#feature-lifecycle-checklist)
+before its design is complete, including shared-record survival, unnecessary
+personal-reference removal and person-dependent deletion. Do not use a generic
+usage heuristic or retain personal data “just in case”. Do not introduce a
+grace period or generic privacy/session/OAuth framework.
+
+### Remaining security and collaboration gates
+
+Confirmation, recovery, logout/revocation, prior-refresh-token reuse, rate
+limiting, client token storage, Data Protection continuity, public auth error
+policy and the independent NormalizedEmail lifecycle remain required gates.
+The exact access lifetime is OPEN; it cannot substitute for immediate denial
+after committed DeleteAccount. Preserve the current UserName=email uniqueness
+guard until an explicit email/username lifecycle decision replaces it.
+
+Dependency tests still need framework/package and project-reference guards.
+Keep Household creation Testing-only until Account integrity, resource
+authorization and release gates pass. Registration/sign-in/refresh source
+exposure in Production is not deployment evidence. Broader invitations and
+collaboration follow their security gates; lifecycle primitives needed for
+DeleteAccount are deliberately brought forward.
+
+The [repo audit](../DDD-ARCHITECTURE-AUDIT.md) owns point-in-time evidence. The
+following Phase 1 acceptance detail and historical test counts do not certify
+the new lifecycle decisions or their implementation.
 
 ## Phase 1 status summary — historical 2026-09-02 evidence
 

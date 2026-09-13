@@ -38,6 +38,7 @@ remain incomplete. See the
 | Security plan | [SECURITY-ROADMAP.md](architecture/roadmap/SECURITY-ROADMAP.md) |
 | Technical debt | [TECHNICAL-DEBT-REGISTER.md](architecture/roadmap/TECHNICAL-DEBT-REGISTER.md) |
 | Product scope | [PRODUCT-SCOPE.md](product/PRODUCT-SCOPE.md) |
+| Account deletion and Household lifecycle | [DELETION-DESIGN.md](privacy/DELETION-DESIGN.md) |
 
 ## Architecture
 
@@ -54,6 +55,19 @@ remain incomplete. See the
 - [Next development steps](architecture/roadmap/NEXT-STEPS.md)
 - [Security roadmap](architecture/roadmap/SECURITY-ROADMAP.md)
 - [Technical-debt register](architecture/roadmap/TECHNICAL-DEBT-REGISTER.md)
+
+## Privacy and lifecycle
+
+- [Deletion design](privacy/DELETION-DESIGN.md) — adopted Account/Household
+  lifecycle, ownership rules, open decisions, and implementation dependencies.
+- [Data inventory](privacy/DATA-INVENTORY.md) — current repository evidence.
+- [Retention policy](privacy/RETENTION-POLICY.md) — open periods and proposed preparation.
+- [Processing register](privacy/PROCESSING-REGISTER.md) — purposes and unresolved legal/operational facts.
+- [Privacy notice requirements](privacy/PRIVACY-NOTICE-REQUIREMENTS.md) — initial publication requirements.
+
+The lifecycle decisions are ADOPTED; the Account FK, current-Account validity
+check, DeleteAccount, LeaveHousehold, TransferOwnership and CloseHousehold are
+NOT YET IMPLEMENTED. Account-reference integrity is the next CODE task.
 
 ## Product
 
@@ -81,6 +95,7 @@ traceability and are explicitly non-authoritative.
 - [Documentation map](DOCUMENTATION-MAP.md) records the 2026-08-29 cleanup.
 - Relative links must remain valid after every move.
 - Developer-facing docs use repository-relative paths, never a local home path.
-- Historical ADRs are superseded with a later ADR, not rewritten.
+- Preserve historical ADR context; dated current-decision addenda may clarify
+  follow-up decisions. Supersede a replaced decision explicitly.
 - Refresh current-state claims when implementation moves; do not rewrite
   point-in-time archive evidence as current fact.

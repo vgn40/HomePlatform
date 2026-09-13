@@ -70,6 +70,47 @@ These are the accepted identity and authority decisions for the Household
 model. Acceptance records the chosen model; it does not claim that every
 invariant or follow-up use case is implemented.
 
+## Current-decision addendum — 2026-09-13
+
+**ADOPTED.** The original context and implementation evidence above are retained.
+[DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical for subsequent
+deletion/lifecycle decisions and narrows the earlier open integrity direction.
+
+- AccountId is optional because MembershipId and Account identity have separate
+  lifecycles. Optional AccountId is not permission for a loginless Owner;
+  Owner requires a real Account, including after deletion or unlinking.
+- Membership never implies ownership. Children, grandparents, partners,
+  Members and Guests never become Owner automatically.
+- Ownership transfer is explicit and chooses a concrete eligible Account-linked
+  destination. Destination acceptance remains OPEN.
+- DeleteAccount resolves every Household membership. A last Owner must choose
+  explicit TransferOwnership or CloseHousehold; a continuing Household cannot
+  be ownerless. A non-last-Owner departure does not automatically change any
+  other person's role.
+- Add a nullable HouseholdMember.AccountId FK to AspNetUsers.Id with rejecting
+  deletion behavior. Account-to-HouseholdMember CASCADE DELETE and automatic
+  SET NULL are not lifecycle logic. The exact EF/PostgreSQL mapping remains an
+  OPEN implementation detail; Domain must stay framework-independent.
+- **Follow-up ADOPTED decision — 2026-09-13:** DeleteAccount membership fate is
+  resolved. After ownership rules are resolved, explicitly delete every
+  HouseholdMember linked to the AccountId across all Households, then delete
+  Identity/ApplicationUser. Never silently convert those memberships to loginless.
+  AccountId stays nullable for separately created/managed loginless memberships.
+- Stable MembershipId preserves identity while the Membership exists; it does
+  not require preserving the Membership after DeleteAccount. The earlier
+  link/unlink/history language is not an indefinite retention rule. Concrete
+  future feature attribution/history remains OPEN; surviving shared records
+  must lose unnecessary personal references under their explicit feature rules.
+- DeleteAccount, LeaveHousehold, TransferOwnership, CloseHousehold, the Account
+  FK and protected-request current-Account validation are NOT YET IMPLEMENTED.
+
+The original “preserve at least one Owner” invariant applies to a continuing
+Household. Explicit CloseHousehold ends that lifecycle; it does not authorize
+an ownerless Household to continue. CloseHousehold's detailed handling of every
+future record type remains OPEN. Every new persisted feature must complete the
+[lifecycle checklist](../../privacy/DELETION-DESIGN.md#feature-lifecycle-checklist);
+creator deletion alone does not determine shared record ownership or retention.
+
 ## Conceptual Model
 
 ```text
