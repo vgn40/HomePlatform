@@ -1,3 +1,4 @@
+using HomePlatform.Application.Accounts.Refresh;
 using HomePlatform.Application.Accounts.Register;
 using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Application.Households;
@@ -50,6 +51,10 @@ public static class DependencyInjection
         services.AddScoped<
             IAccountAuthentication,
             IdentityAccountAuthentication>();
+
+        services.AddScoped<
+            IAccountRefresh,
+            IdentityAccountRefresh>();
 
         return services;
     }

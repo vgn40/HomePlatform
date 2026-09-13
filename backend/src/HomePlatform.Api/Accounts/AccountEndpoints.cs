@@ -1,3 +1,4 @@
+using HomePlatform.Api.Accounts.Refresh;
 using HomePlatform.Api.Accounts.Register;
 using HomePlatform.Api.Accounts.SignIn;
 
@@ -14,6 +15,7 @@ public static class AccountEndpoints
 
         accounts.MapRegisterAccountEndpoint();
         accounts.MapSignInAccountEndpoint();
+        accounts.MapRefreshAccountEndpoint();
 
         return endpoints;
     }

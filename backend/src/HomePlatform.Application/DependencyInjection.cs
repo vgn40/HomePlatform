@@ -1,3 +1,4 @@
+using HomePlatform.Application.Accounts.Refresh;
 using HomePlatform.Application.Accounts.Register;
 using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Application.Households.CreateHousehold;
@@ -15,6 +16,9 @@ public static class DependencyInjection
 
         services.AddScoped<SignInAccountValidator>();
         services.AddScoped<SignInAccountHandler>();
+
+        services.AddScoped<RefreshAccountValidator>();
+        services.AddScoped<RefreshAccountHandler>();
 
         services.AddScoped<CreateHouseholdHandler>();
 
