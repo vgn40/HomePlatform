@@ -79,4 +79,47 @@ public class Household
 
         return Result.Success();
     }
+    public Result TransferOwnership(
+        Guid currentOwnerAccountId,
+        Guid newOwnerMembershipId)
+    {
+        var currentOwner = _members.FirstOrDefault(
+            member =>
+                member.AccountId == currentOwnerAccountId &&
+                member.Role == HouseholdRole.Owner);
+
+        if (currentOwner is null)
+        {
+            return Result.Failure(
+                "Current account is not an owner of this household.");
+        }
+
+        var newOwner = _members.FirstOrDefault(
+            member => member.MembershipId == newOwnerMembershipId);
+
+        if (newOwner is null)
+        {
+            return Result.Failure(
+                "New owner is not a member of this household.");
+        }
+
+        if (newOwner.MembershipId == currentOwner.MembershipId)
+        {
+            return Result.Failure(
+                "Owner cannot transfer ownership to themselves.");
+        }
+
+        if (newOwner.AccountId is null)
+        {
+            return Result.Failure(
+                "New owner must be linked to an account.");
+        }
+
+        newOwner.ChangeRole(HouseholdRole.Owner);
+        currentOwner.ChangeRole(HouseholdRole.Member);
+
+        UpdatedAt = DateTime.UtcNow;
+
+        return Result.Success();
+    }
 }
