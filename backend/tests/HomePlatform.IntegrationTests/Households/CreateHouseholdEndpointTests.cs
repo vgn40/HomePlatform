@@ -84,6 +84,7 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
         await ResetDatabaseAsync();
 
         var authenticatedAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
 
         using var request = CreateRequest(
             authenticatedAccountId.ToString(),
@@ -112,7 +113,9 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
         await ResetDatabaseAsync();
 
         var authenticatedAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
         var callerSelectedAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(callerSelectedAccountId);
 
         using var request = CreateRequest(
             authenticatedAccountId.ToString(),
@@ -147,8 +150,10 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     {
         await ResetDatabaseAsync();
 
+        var authenticatedAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
         using var request = CreateRequest(
-            Guid.NewGuid().ToString(),
+            authenticatedAccountId.ToString(),
             new { name = "   " });
 
         var response = await Client.SendAsync(request);
@@ -169,9 +174,11 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     {
         await ResetDatabaseAsync();
 
+        var authenticatedAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
         var name = new string('a', Household.MaxNameLength + 1);
         using var request = CreateRequest(
-            Guid.NewGuid().ToString(),
+            authenticatedAccountId.ToString(),
             new { name });
 
         var response = await Client.SendAsync(request);

@@ -17,10 +17,13 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         .Build();
 
     private DbContextOptions<HomePlatformDbContext>? _options;
+    private HomePlatformApiFactory? _factory;
 
     public async Task InitializeAsync()
     {
         await _postgres.StartAsync();
+        _factory = new HomePlatformApiFactory(
+            _postgres.GetConnectionString(), useTestAuthentication: false);
 
         _options = new DbContextOptionsBuilder<HomePlatformDbContext>()
             .UseNpgsql(_postgres.GetConnectionString())
@@ -34,6 +37,7 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
     public async Task Repository_add_persists_and_reloads_household_with_owner()
     {
         var ownerAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(ownerAccountId);
         var household = new Household("Test household", ownerAccountId);
         var owner = Assert.Single(household.Members);
         var expectedHouseholdId = household.Id;
@@ -66,7 +70,9 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
     [Fact]
     public async Task Repository_add_with_already_cancelled_token_writes_zero_rows()
     {
-        var household = new Household("Cancelled household", Guid.NewGuid());
+        var ownerAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(ownerAccountId);
+        var household = new Household("Cancelled household", ownerAccountId);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
@@ -85,7 +91,9 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
     public async Task Repository_add_invokes_save_changes_exactly_once()
     {
         var interceptor = new SaveChangesInvocationInterceptor();
-        var household = new Household("Single save household", Guid.NewGuid());
+        var ownerAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(ownerAccountId);
+        var household = new Household("Single save household", ownerAccountId);
 
         await using var context = CreateContext(interceptor);
         var repository = new HouseholdRepository(context);
@@ -98,7 +106,9 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
     [Fact]
     public async Task Repository_add_rolls_back_household_when_owner_insert_fails()
     {
-        var household = new Household("Rollback household", Guid.NewGuid());
+        var ownerAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(ownerAccountId);
+        var household = new Household("Rollback household", ownerAccountId);
 
         await using (var setupContext = CreateContext())
         {
@@ -147,7 +157,9 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
     [Fact]
     public async Task Duplicate_household_account_is_rejected_for_stale_aggregate_instances()
     {
-        var household = new Household("Test household", Guid.NewGuid());
+        var ownerAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(ownerAccountId);
+        var household = new Household("Test household", ownerAccountId);
 
         await using (var setupContext = CreateContext())
         {
@@ -161,6 +173,7 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         var household1 = await LoadHousehold(context1, household.Id);
         var household2 = await LoadHousehold(context2, household.Id);
         var accountB = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(accountB);
 
         Assert.True(household1.AddMember(HouseholdRole.Member, accountB).IsSuccess);
         Assert.True(household2.AddMember(HouseholdRole.Member, accountB).IsSuccess);
@@ -177,7 +190,9 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
     [Fact]
     public async Task Multiple_loginless_members_are_allowed_in_the_same_household()
     {
-        var household = new Household("Test household", Guid.NewGuid());
+        var ownerAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(ownerAccountId);
+        var household = new Household("Test household", ownerAccountId);
 
         Assert.True(household.AddMember(HouseholdRole.Member).IsSuccess);
         Assert.True(household.AddMember(HouseholdRole.Member).IsSuccess);
@@ -195,8 +210,16 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        if (_factory is not null)
+        {
+            await _factory.DisposeAsync();
+        }
+
         await _postgres.DisposeAsync();
     }
+
+    private HomePlatformApiFactory Factory =>
+        _factory ?? throw new InvalidOperationException("Test fixture is not initialized.");
 
     private HomePlatformDbContext CreateContext(
         params IInterceptor[] interceptors)

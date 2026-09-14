@@ -1,4 +1,5 @@
 using HomePlatform.Domain.Household;
+using HomePlatform.Infrastructure.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -17,6 +18,11 @@ public sealed class HouseholdMemberConfiguration
 
         builder.Property(member => member.AccountId)
             .IsRequired(false);
+
+        builder.HasOne<ApplicationUser>()
+            .WithMany()
+            .HasForeignKey(member => member.AccountId)
+            .OnDelete(DeleteBehavior.ClientNoAction);
 
         builder.Property(member => member.Role)
             .IsRequired();
