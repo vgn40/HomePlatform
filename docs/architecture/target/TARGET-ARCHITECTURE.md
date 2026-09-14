@@ -1,7 +1,7 @@
 # HomePlatform Target Architecture
 
 Status: **Authoritative target**  
-Last reviewed: **2026-09-13**
+Last reviewed: **2026-09-14**
 Decision boundary: accepted ADRs, including ADR 0006, are binding
 
 ## Purpose and authority
@@ -14,8 +14,9 @@ boundaries, the [domain model](DOMAIN-MODEL.md) owns DDD terminology, and the
 
 ## Current architecture
 
-As of source inspection on 2026-09-13 at `main@07eeb12`, with bearer sign-in
-committed in `4180096` and Refresh in `635d181`:
+Account-reference review on 2026-09-14 at `main@bc03a00` plus the user-owned
+uncommitted implementation/tests, with bearer sign-in committed in `4180096`
+and Refresh in `635d181`:
 
 - four production projects follow the dependency graph below;
 - Domain contains Household and its HouseholdMember entities, HouseholdRole,
@@ -32,16 +33,23 @@ committed in `4180096` and Refresh in `635d181`:
   authenticated `POST /api/households`, and anonymous
   `POST /api/accounts/register`, `POST /api/accounts/sign-in`, and
   `POST /api/accounts/refresh` in every environment, including Production;
-- three migrations exist: InitialHousehold, LimitHouseholdNameLength, and
-  AddIdentityPersistence. The local dotnet-ef pin is 10.0.11;
+- four migrations exist: InitialHousehold, LimitHouseholdNameLength,
+  AddIdentityPersistence, and AddHouseholdMemberAccountReference. The local
+  dotnet-ef pin is 10.0.11;
 - registration, bearer sign-in, and Refresh are implemented. Refresh validates
   expiry/security stamp and issues new access/refresh tokens through the framework
   bearer handler; the endpoint returns Results.Empty after that response.
   Permanent real-bearer PostgreSQL tests prove renewal, safe failures, and the
-  registered AccountId on a protected Household write. Current verification is
-  105/105 tests; the historical registration baseline remains 72/72.
-  Confirmation/recovery/revocation, rate limiting, Account-reference validation,
-  Household resource authorization, deployment, and frontend remain incomplete.
+  registered AccountId on a protected Household write. The historical Refresh
+  baseline is 105/105; the registration baseline remains 72/72;
+- Account-reference integrity is IMPLEMENTED / VERIFIED locally: optional FK,
+  guarding deletion, real Identity-seeded fixtures and valid/dangling migration
+  upgrade tests. Build passed with zero warnings/errors; full solution:
+  **119/119** (Domain 25, Application 16, Integration 78; **0 skipped**).
+  See [current verification](../roadmap/NEXT-STEPS.md#account-reference-integrity-verification--2026-09-14).
+  Ownership lifecycle, protected-request current-Account validation,
+  confirmation/recovery/revocation, rate limiting, Household resource
+  authorization, deployment, and frontend remain incomplete.
 
 The [DDD/Clean Architecture audit](../DDD-ARCHITECTURE-AUDIT.md) records the
 historical verification and findings, with a registration completion follow-up. The earlier 57-test Phase 1
@@ -216,10 +224,11 @@ through the API adapter. There is no reason to invent an Account aggregate
 without independent product-domain behavior. Email/password may cross the
 registration use-case boundary transiently; they do not belong in Household Domain.
 
-Verified linking/unlinking, Account existence/lifecycle integrity, last-Owner
-concurrency, and assignment/history preservation remain follow-up work. A shared
-database alone does not validate an Account reference. No global Person context
-or general capability engine is justified.
+The optional Account FK now enforces non-null reference existence and rejects
+unresolved Account deletion. Verified linking/unlinking workflows,
+protected-request current-Account validation, ownership lifecycle, last-Owner
+concurrency and assignment/history preservation remain follow-up work. No global
+Person context or general capability engine is justified.
 
 ### Adopted Account deletion and ownership lifecycle
 
@@ -271,15 +280,19 @@ service is justified.
 Current persistence uses MembershipId as the member primary key, a required
 HouseholdId foreign key with cascade delete, and a unique unfiltered index on
 (HouseholdId, AccountId). PostgreSQL permits multiple null AccountIds. No active
-membership flag/filter or Account foreign key exists. **ADOPTED, NOT YET
-IMPLEMENTED:** add a nullable HouseholdMember.AccountId FK to AspNetUsers.Id
-with rejecting deletion behavior. DeleteAccount explicitly removes all linked
-memberships after ownership resolution and before Identity deletion; no
-Account-to-HouseholdMember CASCADE DELETE or
-automatic SET NULL. Exact EF DeleteBehavior API and PostgreSQL mapping remain
-OPEN implementation details to verify. The existing Household-to-member
-cascade is a different relationship and does not authorize implicit closure.
-Future inactive-membership semantics remain OPEN.
+membership flag/filter exists. **IMPLEMENTED / VERIFIED locally:** nullable
+HouseholdMember.AccountId references AspNetUsers.Id with EF ClientNoAction and
+PostgreSQL NO ACTION. AddHouseholdMemberAccountReference adds the FK and a
+separate AccountId index for cross-Household lookup. Tests prove valid/null
+links, missing-Account rejection and tracked/untracked deletion guards, plus
+valid-data upgrades and failure on dangling historical links without silent
+cleanup. Actual environment data/migration state remains NOT VERIFIED.
+
+DeleteAccount remains NOT YET IMPLEMENTED: it must explicitly remove all linked
+memberships after ownership resolution and before Identity deletion, without
+Account-to-HouseholdMember CASCADE DELETE or automatic SET NULL. The existing
+Household-to-member cascade is a different relationship and does not authorize
+implicit closure. Future inactive-membership semantics remain OPEN.
 
 Database guarantees are narrower than all Domain invariants: name nullability
 and length and linked-account uniqueness are mapped; nonblank names, valid role
@@ -366,7 +379,7 @@ number, future feature name, or portfolio goal does not trigger infrastructure.
 | Timing | Candidate | Problem/trigger and simplest first response |
 |---|---|---|
 | Now | Four layers, explicit handlers, aggregate repository, one DbContext | Keep the existing use-case, Domain, and persistence separation. No structural rewrite. |
-| Next | Account-reference integrity, required Household lifecycle, current-Account validation, then DeleteAccount | Follow NEXT-STEPS and the deletion design. Dependency guards and confirmation/recovery/revocation remain gates; no new generic privacy/session framework. |
+| Next | Household ownership lifecycle, starting with TransferOwnership test-first, then current-Account validation and DeleteAccount | Account-reference integrity is verified locally. Follow NEXT-STEPS and the deletion design. Dependency guards and confirmation/recovery/revocation remain gates; no new generic privacy/session framework. |
 | Next, with first read | Queries/read DTOs | Project authorized data from the same PostgreSQL database; do not hydrate aggregates for display. |
 | Later if needed | Bounded context split | Independent language, invariants, model, lifecycle, ownership, and reasons to change are demonstrated; start with folders/contracts. |
 | Later if needed | Domain events | One domain action has multiple independent reactions and direct orchestration becomes coupled. Start in process and decide before/after-commit semantics. |

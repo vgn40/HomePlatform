@@ -1,7 +1,7 @@
 # HomePlatform Technical-Debt Register
 
 Status: **Authoritative debt register**  
-Last reviewed: **2026-09-13**
+Last reviewed: **2026-09-14**
 
 Debt is a conscious correctness or maintainability obligation with a trigger
 and exit gate. Unbuilt product scope is not automatically technical debt.
@@ -18,22 +18,23 @@ and exit gate. Unbuilt product scope is not automatically technical debt.
 | ID | Priority | Current evidence | Required action | Exit evidence |
 |---|---|---|---|---|
 | TD-005 | P1 | MembershipId, nullable AccountId, loginless membership, aggregate/database scoped uniqueness, and PostgreSQL round-trip are proven; link/unlink and lifecycle behavior do not exist | implement only explicit authorized link/unlink/lifecycle use cases when their roadmap gate is reached | Domain + PostgreSQL identity/cardinality/concurrency tests pass |
-| TD-010 | P1 | Testing-only CreateHousehold has both test-auth and production-bearer coverage and Production is 404; Identity persistence, registration, sign-in, and Refresh exist, including renewal, expiry/security-stamp rejection, and real-token AccountId persistence tests; confirmation/recovery/revocation, Account-reference validation, Membership authorization, and IDOR coverage remain incomplete | follow NEXT-STEPS for Account integrity, required ownership lifecycle/current-Account checks and DeleteAccount; complete wider lifecycle, authorization and IDOR release gates | security roadmap phase gates pass |
+| TD-010 | P1 | Testing-only CreateHousehold has both test-auth and production-bearer coverage and Production is 404; Identity persistence, registration, sign-in, and Refresh exist, including renewal, expiry/security-stamp rejection, and real-token AccountId persistence tests; Account-reference integrity is verified locally; confirmation/recovery/revocation, protected-request current-Account validation, Membership authorization, and IDOR coverage remain incomplete | follow NEXT-STEPS for TransferOwnership test-first, required ownership lifecycle/current-Account checks and DeleteAccount; complete wider lifecycle, authorization and IDOR release gates | security roadmap phase gates pass |
 | TD-011 | P1 | last-Owner, Account linking, invitation consumption, and future same-resource edits lack race proof | add database constraints/version/conditional operations and barrier tests | real PostgreSQL proves one winner/valid invariant |
 | TD-013 | P1 | no production container/deploy/observability/backup/restore/export/deletion proof | follow the brought-forward deletion sequence and complete operational/privacy/security gates before real-user release | release gate is evidenced, not asserted |
 | TD-014 | P1 | recurrence/time behavior is undefined | decide IANA zone, DST, missed/edit-series, idempotent occurrence rules | Phase 4 deterministic + PostgreSQL tests pass |
-| TD-019 | P1 | HouseholdMember.AccountId is nullable with scoped uniqueness, but configuration/snapshot contain no FK to AspNetUsers.Id; some Household fixtures use random unseeded AccountIds | next CODE task: guarding nullable FK, review existing rows, real Identity-seeded fixtures; add lookup index only if justified; exact EF API OPEN | PostgreSQL proves valid/null links, rejects missing Accounts and direct Identity deletion with unresolved links; tracked/untracked behavior and migration verified |
 | TD-020 | P1 | bearer access validation and HttpCurrentAccount do not verify current Account existence; Refresh security-stamp validation is a separate check | add current-Account existence/validity for protected product requests and current membership for Household authorization before DeleteAccount | an unexpired token from a deleted Account cannot authorize new product requests; removed membership loses Household access |
 | TD-021 | P1 | DeleteAccount is absent; adopted multi-Household deletion and immediate access termination are not enforced | implement after TD-019/020/022; resolve ownership, explicitly delete all Account-linked memberships across all Households without loginless conversion, refuse unresolved last Owner, atomically apply approved lifecycle and delete Identity Account | multi-Household membership deletion/no-conversion, shared/loginless-person, refusal, rollback/race, feature-specific reference cleanup and post-commit access/refresh denial tests |
-| TD-022 | P1 | LeaveHousehold, TransferOwnership and CloseHousehold are absent; Owner-null constructor guard is not lifecycle/concurrency proof | explicit authorized leave/transfer/close primitives; decide standalone leave/close and feature-specific data behavior; DeleteAccount membership deletion is already ADOPTED; never auto-promote; preserve Account-linked Owner for continuing Household | Domain and PostgreSQL prove explicit transfer/closure, no loginless Owner, no ownerless continuation and concurrency/rollback safety |
+| TD-022 | P1 | LeaveHousehold, TransferOwnership and CloseHousehold are absent; Owner-null constructor guard is not lifecycle/concurrency proof | next CODE feature: TransferOwnership test-first, then explicit authorized leave/close primitives; decide standalone leave/close and feature-specific data behavior; DeleteAccount membership deletion is already ADOPTED; never auto-promote; preserve Account-linked Owner for continuing Household | Domain and PostgreSQL prove explicit transfer/closure, no loginless Owner, no ownerless continuation and concurrency/rollback safety |
 
 TD-019–022 record concrete integrity/security obligations under the
 [adopted deletion design](../../privacy/DELETION-DESIGN.md), not a claim that
 every unbuilt product feature is debt. They refine TD-005/010/011/013 and do not
 close them. Their implementation order is [NEXT-STEPS.md](NEXT-STEPS.md).
 Priority P1 requires resolution before the affected lifecycle/public contract;
-no current build failure is claimed. Evidence is source inspection at
-`main@07eeb12`, not a new test run.
+no current build failure is claimed. TD-019 is closed below; TD-020–022 remain
+open. The original decisions used `main@07eeb12` source inspection. Current
+Account-reference evidence is the 2026-09-14 local test review at `main@bc03a00`
+plus the uncommitted implementation/tests.
 
 ### Findings from the 2026-09-06 audit
 
@@ -44,6 +45,22 @@ no current build failure is claimed. Evidence is source inspection at
 See the [audit](../DDD-ARCHITECTURE-AUDIT.md) for severity, exact locations,
 verification limits, and lower-priority follow-ups. TD-018 remains open;
 the original documentation audit did not change production or test source.
+
+## Closed with Account-reference integrity — 2026-09-14
+
+- **TD-019 — IMPLEMENTED / VERIFIED locally:** optional Account FK and lookup
+  index exist in mapping, migration, designer and snapshot. EF `ClientNoAction`
+  and PostgreSQL guarding deletion preserve linked memberships. The 12 existing
+  integrity cases prove valid/null references, invalid-reference rejection,
+  tracked/untracked deletion guards for Owner/Member/Guest, unreferenced Account
+  deletion and optional model metadata. Two new upgrade cases prove valid data
+  survives and dangling data fails without silent cleanup or invented Accounts.
+  Build: zero warnings/errors; full solution: **119/119** (Domain 25,
+  Application 16, Integration 78; **0 skipped**).
+  [NEXT-STEPS](NEXT-STEPS.md#account-reference-integrity-verification--2026-09-14)
+  links the permanent tests. Actual deployed rows/migration state are NOT VERIFIED;
+  inspect existing data before environment upgrades. This does not close
+  ownership lifecycle, protected-request validation or DeleteAccount.
 
 ## Closed with registration in e2fca98 — 2026-09-07
 

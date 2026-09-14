@@ -1,7 +1,7 @@
 # HomePlatform Domain Model
 
 Status: **Authoritative current-versus-target DDD description**  
-Last reviewed: **2026-09-13**
+Last reviewed: **2026-09-14**
 
 ## Current implemented state
 
@@ -116,11 +116,12 @@ be ownerless. Destination acceptance remains OPEN.
 DeleteAccount, LeaveHousehold, TransferOwnership and CloseHousehold are
 different, NOT YET IMPLEMENTED lifecycles. DeleteAccount resolves all of an
 Account's Household memberships, including loginless-person/shared-data
-consequences. Null AccountId is not anonymization. A future guarding nullable
-FK to AspNetUsers.Id must reject unresolved Identity deletion, with no automatic
-Account-to-member cascade or SET NULL. Domain retains framework independence;
-precise EF/concurrency choices remain OPEN. DeleteAccount membership fate is
-ADOPTED: delete all Account-linked memberships after ownership resolution,
+consequences. Null AccountId is not anonymization. The nullable Account FK to
+AspNetUsers.Id is IMPLEMENTED / VERIFIED locally and rejects unresolved Identity
+deletion without automatic Account-to-member cascade or SET NULL; see
+[database guardrails](../../privacy/DELETION-DESIGN.md#database-guardrails).
+Domain retains framework independence; lifecycle concurrency choices remain
+OPEN. DeleteAccount membership fate is ADOPTED: delete all Account-linked memberships after ownership resolution,
 before Identity deletion. AccountId remains nullable for separate loginless
 creation/management.
 

@@ -1,7 +1,7 @@
 # HomePlatform Security Roadmap
 
 Status: **Authoritative security plan**  
-Last reviewed: **2026-09-13**
+Last reviewed: **2026-09-14**
 Scope: authentication, authorization, API/data protection, secure operations,
 and blocking verification gates for the six-month plan  
 Rule: authentication proves Account identity; authorization decides what that
@@ -39,11 +39,14 @@ evidence of a public deployment. Registration input validation, recognized
 UserNameIndex duplicate-race mapping, typed errors, and OpenAPI are implemented
 and verified in `e2fca98` (historical 72/72 solution tests). Bearer sign-in is
 implemented in `4180096`. Refresh is implemented with permanent PostgreSQL
-coverage; [current verification](NEXT-STEPS.md#refresh-verification--2026-09-13)
-is 105/105 tests. Release gates, confirmation/recovery/logout/revocation, and the
-independent email lifecycle policy remain open. Keep the
-Household route absent from Production until Account-reference integrity,
-resource authorization, and the remaining release gates are ready.
+coverage; [historical Refresh verification](NEXT-STEPS.md#refresh-verification--2026-09-13)
+is 105/105 tests. The [Account-reference review](NEXT-STEPS.md#account-reference-integrity-verification--2026-09-14)
+adds FK and upgrade evidence with the current full-suite result. Release gates,
+confirmation/recovery/logout/revocation and the independent email lifecycle
+policy remain open. Keep the
+Household route absent from Production until current-Account validation,
+resource authorization, and the remaining release gates are ready;
+Account-reference integrity is verified locally.
 
 ### Verified Refresh behavior and remaining session evidence
 
@@ -67,11 +70,13 @@ The authenticated fallback policy is a test override, not production policy.
 
 ## Adopted deletion and ownership requirements
 
-[DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical. The Account
-FK, protected-request current-Account check, DeleteAccount, LeaveHousehold,
-TransferOwnership and CloseHousehold are NOT YET IMPLEMENTED. Implement in the
-[current next-step order](NEXT-STEPS.md): Account-reference integrity, required
-ownership lifecycle primitives, current-Account validity, then DeleteAccount.
+[DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical. Account-reference
+integrity is IMPLEMENTED / VERIFIED locally: nullable FK, ClientNoAction /
+NO ACTION and PostgreSQL integrity/upgrade proof. The protected-request
+current-Account check, DeleteAccount, LeaveHousehold, TransferOwnership and
+CloseHousehold are NOT YET IMPLEMENTED. Follow the
+[current next-step order](NEXT-STEPS.md): Household ownership lifecycle starting
+with TransferOwnership test-first, current-Account validity, then DeleteAccount.
 
 **ADOPTED:** after DeleteAccount successfully commits, new protected product
 requests from that Account must be denied even with an unexpired access token.
@@ -84,8 +89,8 @@ authorization; no custom session/OAuth framework is required.
 requires explicit TransferOwnership to a concrete eligible Account-linked
 person or explicit CloseHousehold. Membership never causes automatic Owner
 promotion. Null AccountId is not anonymization, and Owner does not own other
-people's personal data. The guarding nullable AccountId FK must reject direct
-Identity deletion with unresolved links; no Account-to-HouseholdMember CASCADE
+people's personal data. The implemented guarding nullable AccountId FK rejects
+direct Identity deletion with unresolved links; no Account-to-HouseholdMember CASCADE
 DELETE or automatic SET NULL.
 
 **ADOPTED:** after ownership resolution, DeleteAccount explicitly deletes all
@@ -98,7 +103,8 @@ it does not perform membership lifecycle on the application's behalf.
 Destination acceptance, reauthentication UX, exact access lifetime,
 concrete future feature lifecycles/attribution/history, child policy, retention/backups,
 Article 6 bases, providers/regions, future CloseHousehold record handling and
-precise concurrency/EF APIs remain OPEN. No grace period is adopted.
+precise lifecycle concurrency/transaction APIs remain OPEN. No grace period is
+adopted.
 
 ## Trust model
 

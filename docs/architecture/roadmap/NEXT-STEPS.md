@@ -1,7 +1,7 @@
 # HomePlatform Next Steps
 
 Status: **Authoritative executable order**  
-Last reviewed: **2026-09-13**
+Last reviewed: **2026-09-14**
 Strategic parent: [HomePlatform Six-Month Masterplan](HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
 
 ## Current stop-gate
@@ -11,7 +11,7 @@ Registration changes. Recheck branch/HEAD/status before implementation and
 preserve concurrent work. No commit or push was made by the audit.
 
 ADR 0006 is Accepted and its core Household identity model is implemented.
-There are three migrations and dotnet-ef is pinned to 10.0.11. Phase 1's
+There are four migrations and dotnet-ef is pinned to 10.0.11. Phase 1's
 2026-09-02 completion is historical; Phase 2 has started with roleless Identity
 persistence, registration, bearer sign-in (`4180096`), and the implemented
 Refresh endpoint. Renewed bearer tokens authenticate follow-up requests;
@@ -82,6 +82,36 @@ Existing registration and bearer sign-in regressions remain green. This is
 local test-host evidence; hosted CI, deployment, client token handling, and the
 remaining lifecycle/release gates are not certified by it.
 
+### Account-reference integrity verification — 2026-09-14
+
+**IMPLEMENTED / VERIFIED locally** at `main@bc03a00` plus the user-owned
+uncommitted mapping/migration and test changes. The nullable
+`HouseholdMember.AccountId -> AspNetUsers.Id` FK uses EF `ClientNoAction` and
+PostgreSQL `NO ACTION`. Migration `20260913183105_AddHouseholdMemberAccountReference`
+adds the AccountId lookup index and FK without CASCADE or SET NULL. The separate
+index supports AccountId lookup across Households; the existing unique index
+starts with HouseholdId and retains its scoped uniqueness role.
+
+[AccountReferenceIntegrityTests](../../../backend/tests/HomePlatform.IntegrationTests/Households/AccountReferenceIntegrityTests.cs)
+cover real Identity links, loginless Member/Guest, invalid references,
+tracked/untracked deletion for Owner/Member/Guest, an unreferenced Account's
+deletion, and the optional EF FK (12 cases).
+[AccountReferenceMigrationTests](../../../backend/tests/HomePlatform.IntegrationTests/Households/AccountReferenceMigrationTests.cs)
+add two PostgreSQL upgrade cases from `20260904100319_AddIdentityPersistence`:
+valid data survives and the named FK rejects deletion; dangling data makes the
+migration fail with unchanged memberships, AccountIds, Accounts and migration
+history. Invalid historical data must not be silently deleted, nulled or repaired
+with invented Accounts. Existing Household integration fixtures seed real
+Identity Accounts.
+
+Build passed with zero warnings/errors. The full solution passed **119/119**:
+Domain 25, Application 16, Integration 78; **0 skipped**.
+`git diff --check` passed. Production mapping, migration, designer and snapshot
+were reviewed read-only and preserved byte-for-byte. This is local test evidence;
+deployed migration state and actual historical data remain NOT VERIFIED. Before
+applying to an existing environment, inspect for dangling references and resolve
+any invalid rows explicitly under the adopted lifecycle decisions.
+
 ### Structural refactor verification — 2026-09-09
 
 Against `main@4180096` plus the structural refactor and unchanged uncommitted
@@ -101,19 +131,21 @@ collaboration” sequence; historical Phase 1/Refresh evidence below is retained
 | Order | Work | Status / gate |
 |---|---|---|
 | 1 / Phase A | Privacy/lifecycle decisions documented | ADOPTED; unresolved policy questions remain OPEN in the canonical design |
-| 2 / Phase B | Account-reference integrity | NEXT CODE TASK; nullable HouseholdMember.AccountId FK to AspNetUsers.Id with rejecting deletion, justified lookup index only, real Identity-seeded fixtures and PostgreSQL constraint proof |
-| 3 / Phase C | Required ownership lifecycle support | NOT YET IMPLEMENTED: LeaveHousehold, explicit TransferOwnership, explicit CloseHousehold, required authorization/invariants and concurrency proof |
+| 2 / Phase B | Account-reference integrity | IMPLEMENTED / VERIFIED locally: nullable FK, AccountId lookup index, real Identity-seeded fixtures, tracked/untracked constraint proof and valid/dangling migration upgrades |
+| 3 / Phase C | Required ownership lifecycle support | NEXT CODE PHASE, NOT YET IMPLEMENTED: start TransferOwnership test-first, then required LeaveHousehold/CloseHousehold work with authorization, invariants and concurrency proof |
 | 4 / Phase D | Protected-request Account validity | NOT YET IMPLEMENTED: current Account existence/validity; Household access also checks current membership |
 | 5 / Phase E | DeleteAccount | NOT YET IMPLEMENTED: ownership resolved across all Households, all Account-linked memberships explicitly deleted without loginless conversion, unresolved last Owner refused, lifecycle and Identity deletion atomic, future protected requests denied |
 | 6 / Phase F | ExportMyData / rectification / ChangeEmail and wider privacy rights | Later; resolve scope, authority, email lifecycle and legal questions |
 | 7 / Phase G | Production privacy/security gates | Before real-user release: retention/backups/restore, providers/regions, operational proof and remaining security controls |
 
-**Account-reference integrity is the next CODE task.** Review current rows and
-test fixtures before a migration; existing tests can use random AccountIds
-without Identity rows. Do not silently remove/null orphan links. Verify the
-chosen EF DeleteBehavior and PostgreSQL behavior, including tracked dependents,
-nullable links, invalid references and rejected direct Identity deletion. No
-precise API, Account lookup index or concurrency mechanism is predetermined.
+**TransferOwnership is the next CODE feature, starting test-first.** Begin with
+Household ownership lifecycle tests for an explicitly selected eligible
+Account-linked destination, authorization, no automatic promotion, no loginless
+Owner and a continuing Account-linked Owner. Resolve destination acceptance and
+exact API/concurrency choices when designing that feature; they remain OPEN.
+Require PostgreSQL rollback/race proof for its durable implementation. No
+TransferOwnership production code or future-feature tests are added in this
+Account-reference review.
 
 DeleteAccount membership fate is now **RESOLVED**: after ownership resolution,
 explicitly delete every Account-linked membership across all Households, then
@@ -140,8 +172,9 @@ after committed DeleteAccount. Preserve the current UserName=email uniqueness
 guard until an explicit email/username lifecycle decision replaces it.
 
 Dependency tests still need framework/package and project-reference guards.
-Keep Household creation Testing-only until Account integrity, resource
-authorization and release gates pass. Registration/sign-in/refresh source
+Account-reference integrity is verified locally. Keep Household creation
+Testing-only until current-Account validation, resource authorization and the
+remaining release gates pass. Registration/sign-in/refresh source
 exposure in Production is not deployment evidence. Broader invitations and
 collaboration follow their security gates; lifecycle primitives needed for
 DeleteAccount are deliberately brought forward.

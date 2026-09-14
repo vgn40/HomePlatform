@@ -1,10 +1,13 @@
 # HomePlatform Deletion Design
 
-Status: **ADOPTED product/domain decisions; lifecycle implementation NOT YET IMPLEMENTED**
+Status: **ADOPTED product/domain decisions; Account-reference integrity IMPLEMENTED / VERIFIED locally; lifecycle operations NOT YET IMPLEMENTED**
 
 Decision date: **2026-09-13**
 
-Repository evidence: `main@07eeb12`; source inspection only, no build/test run.
+Initial decision evidence: `main@07eeb12`; source inspection on 2026-09-13.
+Account-reference review: **2026-09-14**, `main@bc03a00` plus the user-owned
+uncommitted implementation and tests; local PostgreSQL/build evidence below.
+No deployed database or real-user data was inspected.
 
 ## Purpose
 
@@ -18,6 +21,8 @@ Status vocabulary across the privacy documents:
 - **ADOPTED:** a product/domain rule or architecture direction has been decided.
 - **PROPOSED:** a candidate requiring a later decision; not a binding rule.
 - **OPEN:** no final decision exists.
+- **IMPLEMENTED / VERIFIED locally:** current code and local tests establish the
+  stated behavior; this does not certify deployment or operational controls.
 - **NOT YET IMPLEMENTED:** the required behavior is absent; adopting a rule
   does not prove runtime enforcement.
 
@@ -47,8 +52,9 @@ repository evidence; they do not infer missing audit findings or legal facts.
 8. Account deletion must not automatically cascade-delete a Household that
    other Account-linked people legitimately continue using. Shared record
    ownership is distinct from Account ownership.
-9. Add a real nullable `HouseholdMember.AccountId -> AspNetUsers.Id` foreign key
-   with rejecting/guarding deletion behavior in a later implementation.
+9. Require a real nullable `HouseholdMember.AccountId -> AspNetUsers.Id` foreign
+   key with rejecting/guarding deletion behavior. IMPLEMENTED / VERIFIED locally
+   on 2026-09-14; see Database Guardrails.
 10. Do not use Account-to-HouseholdMember `CASCADE DELETE` or automatic
     `SET NULL` as lifecycle logic. Resolve relations explicitly first.
 11. After DeleteAccount successfully commits, new protected product requests
@@ -286,28 +292,39 @@ record type on CloseHousehold remain **OPEN**. See the
 
 ## Database Guardrails
 
-**Current evidence:** [HouseholdMemberConfiguration](../../backend/src/HomePlatform.Infrastructure/Persistence/Configurations/HouseholdMemberConfiguration.cs)
-maps nullable AccountId and scoped `(HouseholdId, AccountId)` uniqueness but no
-Account FK. The [model snapshot](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/HomePlatformDbContextModelSnapshot.cs)
-agrees. A Guid value and a shared database do not establish Account existence.
+**IMPLEMENTED / VERIFIED locally:** [HouseholdMemberConfiguration](../../backend/src/HomePlatform.Infrastructure/Persistence/Configurations/HouseholdMemberConfiguration.cs)
+maps nullable `AccountId -> AspNetUsers.Id` with EF `DeleteBehavior.ClientNoAction`.
+The [migration](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/20260913183105_AddHouseholdMemberAccountReference.cs),
+its designer and [model snapshot](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/HomePlatformDbContextModelSnapshot.cs)
+agree. The migration adds `IX_HouseholdMember_AccountId` and
+`FK_HouseholdMember_AspNetUsers_AccountId` with PostgreSQL `NO ACTION`, without
+CASCADE or SET NULL. The AccountId index supports cross-Household Account lookup;
+the existing `(HouseholdId, AccountId)` unique index retains its separate scoped
+uniqueness role. Domain remains independent of EF and Identity types.
 
-**ADOPTED architecture direction; NOT YET IMPLEMENTED:** nullable
-`HouseholdMember.AccountId` must reference `AspNetUsers.Id`. Direct Identity
-deletion with unresolved references must be rejected. DeleteAccount must
-explicitly delete all memberships linked to that AccountId after ownership
-resolution and before Identity-account deletion. Do not automatically convert
-them to loginless memberships. Nullable AccountId remains supported for
-separately created/managed loginless members.
+[AccountReferenceIntegrityTests](../../backend/tests/HomePlatform.IntegrationTests/Households/AccountReferenceIntegrityTests.cs)
+prove valid Identity references, null Member/Guest links, rejection of unknown
+Accounts, tracked/untracked deletion guards for Owner/Member/Guest, deletion of
+an unreferenced Account and optional FK metadata (12 cases).
+[AccountReferenceMigrationTests](../../backend/tests/HomePlatform.IntegrationTests/Households/AccountReferenceMigrationTests.cs)
+prove upgrade from `20260904100319_AddIdentityPersistence`: valid data remains
+intact and the FK is enforced; dangling data makes the migration fail with
+unchanged memberships, AccountIds, Accounts and migration history. It does not
+silently null a link, delete a membership or invent an Account. Inspect actual
+existing rows before an environment upgrade; those rows and deployment state
+are NOT VERIFIED by local tests. Build passed without warnings/errors; the full
+solution passed **119/119: Domain 25, Application 16, Integration 78; 0 skipped**.
+
+**ADOPTED; DeleteAccount NOT YET IMPLEMENTED:** explicitly delete all memberships
+linked to that AccountId after ownership resolution and before Identity-account
+deletion. Do not automatically convert them to loginless memberships. Nullable
+AccountId remains supported for separately created/managed loginless members.
+The guarding FK does not implement ownership lifecycle or protected-request
+current-Account validation.
 
 Do not use Account-to-HouseholdMember `CASCADE DELETE`: it can blindly remove
 membership/shared identity. Do not use automatic `SET NULL`: it can leave
 Owner with null AccountId. Database behavior cannot choose domain ownership.
-
-**IMPLEMENTATION DETAIL / OPEN:** verify the precise EF DeleteBehavior API and
-PostgreSQL constraint behavior in implementation, including tracked dependents
-and direct deletion. `ClientNoAction` / `NO ACTION` are candidates to verify,
-not adopted product rules. Add an Account lookup index only if query/index
-review justifies it. Domain remains independent of EF and Identity types.
 
 The current [HouseholdConfiguration](../../backend/src/HomePlatform.Infrastructure/Persistence/Configurations/HouseholdConfiguration.cs)
 has a separate Household-to-HouseholdMember cascade. Identity's own dependent
@@ -327,8 +344,9 @@ adds no current-Account check. The framework's
 [BearerTokenHandler at v10.0.11](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Security/Authentication/BearerToken/src/BearerTokenHandler.cs)
 validates a protected access ticket and expiry without reloading its Account.
 Thus an existing opaque access token can currently remain usable until expiry.
-This is source/framework evidence; deletion behavior was not tested in this
-docs-only task.
+This is source/framework evidence about access validation. Direct database
+deletion guard tests do not prove the future DeleteAccount or post-deletion
+request-denial behavior.
 
 **Required implementation:** verify current Account existence/validity for
 protected product requests, and resolve current Household membership and role
@@ -377,7 +395,6 @@ The following separate decisions remain open:
 | Hosting/provider/region decisions | OPEN; earlier Azure designs are PROPOSED options |
 | Immediate hard deletion of every future record type by CloseHousehold | OPEN; explicit closure does not settle all future data policies |
 | Precise concurrency strategy | OPEN; atomicity and preservation of invariants remain required |
-| Precise EF DeleteBehavior API choice | OPEN IMPLEMENTATION DETAIL; rejecting FK direction is ADOPTED |
 
 There is no adopted grace period. Do not add one without a later concrete
 product decision. Resolve the relevant open decisions before implementing the
@@ -391,14 +408,14 @@ These phases describe dependencies, not new public endpoints.
 | Phase | Scope | Required evidence / gate |
 |---|---|---|
 | A — docs/decisions | Record the adopted lifecycle and preserve open questions | This document and active product/architecture/roadmap docs agree; no runtime completion claim |
-| B — Account reference integrity | Nullable AccountId FK to AspNetUsers; justified lookup index; review existing rows; real Identity-seeded integration fixtures | Real PostgreSQL rejects missing Accounts and direct deletion with unresolved references; permits valid/null non-Owner links; verify tracked/untracked delete behavior and migration; do not silently delete/null orphan data |
-| C — Household lifecycle primitives | LeaveHousehold, TransferOwnership, CloseHousehold; define standalone leave and required feature data behavior; authorized Domain invariants and concurrency | Explicit destination/closure, no automatic promotion, no loginless Owner, no continuing ownerless Household, rollback/race proof |
+| B — Account reference integrity | IMPLEMENTED / VERIFIED locally: nullable FK, AccountId index, ClientNoAction / NO ACTION and real Identity-seeded fixtures | 12 integrity cases plus 2 valid/dangling upgrade cases; actual environment data still requires inspection before upgrade |
+| C — Household lifecycle primitives | NEXT CODE PHASE, NOT YET IMPLEMENTED: TransferOwnership test-first, then required LeaveHousehold/CloseHousehold work; define standalone leave and required feature data behavior; authorized Domain invariants and concurrency | Explicit destination/closure, no automatic promotion, no loginless Owner, no continuing ownerless Household, rollback/race proof |
 | D — protected request current-Account validation | Check current Account existence/validity; current membership checks for Household access | Previously issued unexpired access token cannot authorize a new product request after Account deletion; removed membership cannot retain Household access |
 | E — DeleteAccount | Resolve ownership across all Households, refuse unresolved last-Owner cases, explicitly delete every Account-linked membership without loginless conversion, atomically apply approved lifecycle and delete Identity Account | Multi-Household membership deletion/no-conversion, ownership success/refusal, rollback, concurrency, feature-specific reference cleanup, existing loginless-person cases, and post-commit access/refresh denial |
 | F — wider privacy rights | ExportMyData, rectification/ChangeEmail, wider request handling | Decide scope/verification and remaining legal questions; protect other people's data |
 | G — operations/release | Retention, backups/restore, provider/region decisions, production privacy/security gates | Validate real operational controls before real-user release; documentation and local tests alone are insufficient |
 
-**Account-reference integrity is the next CODE task.** Phase A does not close
-the policy questions required for later phases. Phase G is the final release
-gate, not permission to process real-user data before privacy/security review.
+**TransferOwnership is the next CODE feature, starting test-first.** The local
+Account-reference verification does not close the policy questions required
+for later phases. Phase G is the final release gate, not permission to process real-user data before privacy/security review.
 No new generic privacy, transaction, session, or OAuth framework is planned.

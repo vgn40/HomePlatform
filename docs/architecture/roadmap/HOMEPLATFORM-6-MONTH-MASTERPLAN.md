@@ -1,7 +1,7 @@
 # HomePlatform Six-Month Masterplan
 
 Status: **Authoritative strategic roadmap**  
-Last reviewed: **2026-09-13**
+Last reviewed: **2026-09-14**
 Planning horizon: approximately 26 weeks
 
 ## Executive direction
@@ -30,9 +30,11 @@ deletion dependencies forward: decisions documented, Account-reference
 integrity, required LeaveHousehold/TransferOwnership/CloseHousehold support,
 protected-request current-Account validity, then DeleteAccount. ExportMyData /
 rectification follows; production privacy/security gates precede real-user
-release. These operations and guards are NOT YET IMPLEMENTED.
+release. Account-reference integrity is IMPLEMENTED / VERIFIED locally on
+2026-09-14; the lifecycle operations and protected-request check remain NOT YET
+IMPLEMENTED.
 
-Account-reference integrity is the next CODE task. This dependency sequence
+TransferOwnership test-first is the next CODE feature. This dependency sequence
 overrides the broad phase placement below where necessary; it does not require
 the entire invitation/collaboration feature set before DeleteAccount. Later
 phases reuse the primitives rather than implementing them again.
@@ -45,10 +47,12 @@ third migration, and registration is committed in `e2fca98`, mapped anonymously 
 environments. Bearer sign-in is implemented in `4180096`; anonymous refresh is
 implemented and validates expiry/security stamp before issuing new access and
 refresh tokens. Permanent real-bearer PostgreSQL tests prove renewal and a
-protected Household write with the registered AccountId. Current verification
-is 105/105 tests; [next steps](NEXT-STEPS.md#refresh-verification--2026-09-13)
-records the scope. Confirmation, recovery, revocation, Membership authorization,
-deployment, and frontend remain unfinished.
+protected Household write with the registered AccountId. The historical Refresh
+verification is 105/105 tests. The 2026-09-14 Account-reference review verifies
+the fourth migration and permanent FK/upgrade tests;
+[next steps](NEXT-STEPS.md#account-reference-integrity-verification--2026-09-14)
+records the current full-suite result and scope. Confirmation, recovery,
+revocation, Membership authorization, deployment and frontend remain unfinished.
 
 The historical registration baseline was 72/72 tests: Domain 25, Application 11,
 Integration 36. The [repo audit](../DDD-ARCHITECTURE-AUDIT.md) preserves its
@@ -148,9 +152,10 @@ Goal: replace test authentication with a supported first-party Identity flow.
   from the security roadmap;
 - preserve the removal of Domain User; do not invent an Account aggregate or
   profile without independent business behavior;
-- implement Account-reference integrity first, then the required Household
-  lifecycle primitives/current-Account check and DeleteAccount in NEXT-STEPS
-  order; keep wider verified linking/invitations under their collaboration gate;
+- retain verified Account-reference integrity; start Household ownership lifecycle
+  with TransferOwnership test-first, then required leave/close primitives,
+  current-Account checks and DeleteAccount in NEXT-STEPS order; keep wider
+  verified linking/invitations under their collaboration gate;
 - prove migration upgrades from the Phase 1 schema and data strategy;
 - normalize public auth failures while preserving protected telemetry.
 

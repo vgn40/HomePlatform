@@ -2,7 +2,8 @@
 
 Status: **Initial repository inventory; production data NOT VERIFIED**
 
-Reviewed: **2026-09-13**, `main@07eeb12`
+Account-reference status reviewed: **2026-09-14**, `main@bc03a00` plus the
+user-owned uncommitted implementation/tests; original inventory: 2026-09-13.
 
 ## Scope and evidence
 
@@ -15,6 +16,9 @@ Primary evidence:
 
 - [Current model snapshot](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/HomePlatformDbContextModelSnapshot.cs)
   and [Identity migration](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/20260904100319_AddIdentityPersistence.cs).
+- [Account-reference migration](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/20260913183105_AddHouseholdMemberAccountReference.cs),
+  [integrity tests](../../backend/tests/HomePlatform.IntegrationTests/Households/AccountReferenceIntegrityTests.cs)
+  and [upgrade tests](../../backend/tests/HomePlatform.IntegrationTests/Households/AccountReferenceMigrationTests.cs).
 - [Registration adapter](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountRegistration.cs),
   [sign-in adapter](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountAuthentication.cs),
   and [refresh adapter](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountRefresh.cs).
@@ -30,9 +34,17 @@ Primary evidence:
 | Additional Identity schema fields | PhoneNumber, PhoneNumberConfirmed, TwoFactorEnabled | Account holder, if later populated | Schema availability only; no current phone/2FA product workflow established by inspected endpoints |
 | Identity dependent tables | AspNetUserClaims: type/value/UserId; AspNetUserLogins: provider/key/display name/UserId; AspNetUserTokens: provider/name/value/UserId | Account holder, if populated by an Identity feature | Schema does not prove external login providers, a session inventory, or storage of issued bearer tokens in these tables |
 | Household | Id, Name, CreatedAt, UpdatedAt | Shared coordination context; free-text Name may contain personal data | CreateHousehold is Testing-only; CloseHousehold NOT YET IMPLEMENTED |
-| HouseholdMember | MembershipId, HouseholdId, nullable AccountId, Role | Participation/authority; may represent a loginless child or other person | No name, age, birth date, or relationship field on this entity; null AccountId is not anonymization; DeleteAccount deletes all Account-linked memberships after ownership resolution, without loginless conversion (ADOPTED, NOT YET IMPLEMENTED) |
+| HouseholdMember | MembershipId, HouseholdId, nullable AccountId, Role | Participation/authority; may represent a loginless child or other person | Optional FK to AspNetUsers.Id and AccountId lookup index IMPLEMENTED / VERIFIED locally; ClientNoAction / NO ACTION rejects unresolved Account deletion. No name, age, birth date, or relationship field on this entity; null AccountId is not anonymization; DeleteAccount deletes all Account-linked memberships after ownership resolution, without loginless conversion (ADOPTED, NOT YET IMPLEMENTED) |
 | Transient auth input/output | Submitted email/password; opaque bearer access/refresh tokens and their protected principal | Account holder; authenticate and renew access | Not Household data; client storage and exact access lifetime OPEN; no custom session store evidenced |
 | Operational logging/configuration | Framework logging configuration, exception/ProblemDetails handling, readiness | Diagnostics/security; exact emitted identifiers depend on runtime | Production log content, destinations and retention NOT VERIFIED; redaction controls remain a security gate |
+
+Local PostgreSQL tests verify valid/null references, invalid-reference rejection,
+and tracked/untracked deletion guards. Upgrade tests preserve valid existing
+links and reject dangling references without nulling/deleting memberships or
+inventing Accounts. Actual deployed rows and migration state remain NOT VERIFIED.
+TransferOwnership, LeaveHousehold, CloseHousehold, protected-request Account
+validation and DeleteAccount remain NOT YET IMPLEMENTED; the next code feature
+is TransferOwnership test-first, per [NEXT-STEPS](../architecture/roadmap/NEXT-STEPS.md).
 
 The [security roadmap](../architecture/roadmap/SECURITY-ROADMAP.md) records
 current security gaps. No production database, real user records, logs, backups,
