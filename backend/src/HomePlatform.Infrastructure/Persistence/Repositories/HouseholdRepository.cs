@@ -47,4 +47,16 @@ public sealed class HouseholdRepository : IHouseholdRepository
         await _dbContext.SaveChangesAsync(
             cancellationToken);
     }
+
+    public async Task DeleteAsync(
+        Household household,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(household);
+
+        _dbContext.Set<Household>().Remove(household);
+
+        await _dbContext.SaveChangesAsync(
+            cancellationToken);
+    }
 }

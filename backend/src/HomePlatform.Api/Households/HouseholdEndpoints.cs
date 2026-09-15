@@ -1,3 +1,4 @@
+using HomePlatform.Application.Households.CloseHousehold;
 using HomePlatform.Application.Households.CreateHousehold;
 using HomePlatform.Application.Households.LeaveHousehold;
 using HomePlatform.Application.Households.TransferOwnership;
@@ -162,6 +163,50 @@ public static class HouseholdEndpoints
                 StatusCodes.Status404NotFound)
             .ProducesProblem(
                 StatusCodes.Status409Conflict);
+
+        endpoints.MapDelete(
+                "/api/households/{householdId:guid}",
+                async (
+                    Guid householdId,
+                    CloseHouseholdHandler handler,
+                    CancellationToken cancellationToken) =>
+                {
+                    var command = new CloseHouseholdCommand(
+                        householdId);
+
+                    var result = await handler.Handle(
+                        command,
+                        cancellationToken);
+
+                    return result.Outcome switch
+                    {
+                        CloseHouseholdOutcome.Success
+                            => Results.NoContent(),
+
+                        CloseHouseholdOutcome.Unauthenticated
+                            => Results.Unauthorized(),
+
+                        CloseHouseholdOutcome.NotFound
+                            => Results.NotFound(),
+
+                        CloseHouseholdOutcome.Forbidden
+                            => Results.Forbid(),
+
+                        _ => throw new InvalidOperationException(
+                            "Unexpected CloseHousehold outcome.")
+                    };
+                })
+            .RequireAuthorization()
+            .WithName("CloseHousehold")
+            .WithTags("Households")
+            .Produces(
+                StatusCodes.Status204NoContent)
+            .Produces(
+                StatusCodes.Status401Unauthorized)
+            .Produces(
+                StatusCodes.Status403Forbidden)
+            .Produces(
+                StatusCodes.Status404NotFound);
 
         return endpoints;
     }

@@ -15,4 +15,8 @@ public interface IHouseholdRepository
     Task UpdateAsync(
         Household household,
         CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(
+        Household household,
+        CancellationToken cancellationToken = default);
 }

@@ -73,6 +73,9 @@ public sealed class UnexpectedErrorContractTests
     private sealed class ThrowingHouseholdRepository
         : IHouseholdRepository
     {
+        public Task DeleteAsync(Household household, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("DeleteAsync was not expected to be called.");
+
         public int AddCallCount { get; private set; }
 
         public Task<Household?> GetByIdAsync(

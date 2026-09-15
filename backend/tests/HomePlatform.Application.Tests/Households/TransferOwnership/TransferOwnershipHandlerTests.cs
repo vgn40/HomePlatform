@@ -258,6 +258,9 @@ public sealed class TransferOwnershipHandlerTests
 
     private sealed class RecordingHouseholdRepository(Household? household = null) : IHouseholdRepository
     {
+        public Task DeleteAsync(Household household, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("DeleteAsync was not expected to be called.");
+
         private readonly Guid? _oldOwnerMembershipId = household?.Members
             .Single(member => member.Role == HouseholdRole.Owner).MembershipId;
         private readonly Guid? _targetMembershipId = household?.Members

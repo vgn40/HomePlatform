@@ -152,4 +152,21 @@ public class Household
 
         return LeaveHouseholdDomainResult.Success();
     }
+
+    public CloseHouseholdDomainResult Close(
+        Guid currentAccountId)
+    {
+        var currentOwner = _members.FirstOrDefault(
+            member =>
+                member.AccountId == currentAccountId &&
+                member.Role == HouseholdRole.Owner);
+
+        if (currentOwner is null)
+        {
+            return CloseHouseholdDomainResult.Failure(
+                CloseHouseholdError.CurrentAccountNotOwner);
+        }
+
+        return CloseHouseholdDomainResult.Success();
+    }
 }

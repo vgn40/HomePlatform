@@ -120,6 +120,9 @@ public sealed class CreateHouseholdHandlerTests
     private sealed class RecordingHouseholdRepository(
         Exception? exceptionToThrow = null) : IHouseholdRepository
     {
+        public Task DeleteAsync(Household household, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("DeleteAsync was not expected to be called.");
+
         public List<Household> AddedHouseholds { get; } = new();
         public CancellationToken? CancellationToken { get; private set; }
 
