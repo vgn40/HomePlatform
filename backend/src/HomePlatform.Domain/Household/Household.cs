@@ -13,14 +13,17 @@ public class Household
     public DateTime CreatedAt { get; }
     public DateTime UpdatedAt { get; private set; }
 
-    public IReadOnlyCollection<HouseholdMember> Members => _members.AsReadOnly();
+    public IReadOnlyCollection<HouseholdMember> Members =>
+        _members.AsReadOnly();
 
     private Household()
     {
         Name = null!;
     }
 
-    public Household(string name, Guid ownerAccountId)
+    public Household(
+        string name,
+        Guid ownerAccountId)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -79,6 +82,7 @@ public class Household
 
         return Result.Success();
     }
+
     public TransferOwnershipDomainResult TransferOwnership(
         Guid currentOwnerAccountId,
         Guid newOwnerMembershipId)
@@ -95,7 +99,8 @@ public class Household
         }
 
         var newOwner = _members.FirstOrDefault(
-            member => member.MembershipId == newOwnerMembershipId);
+            member =>
+                member.MembershipId == newOwnerMembershipId);
 
         if (newOwner is null)
         {
@@ -121,5 +126,30 @@ public class Household
         UpdatedAt = DateTime.UtcNow;
 
         return TransferOwnershipDomainResult.Success();
+    }
+
+    public LeaveHouseholdDomainResult Leave(
+        Guid currentAccountId)
+    {
+        var currentMember = _members.FirstOrDefault(
+            member =>
+                member.AccountId == currentAccountId);
+
+        if (currentMember is null)
+        {
+            return LeaveHouseholdDomainResult.Failure(
+                LeaveHouseholdError.CurrentAccountNotMember);
+        }
+
+        if (currentMember.Role == HouseholdRole.Owner)
+        {
+            return LeaveHouseholdDomainResult.Failure(
+                LeaveHouseholdError.OwnerCannotLeave);
+        }
+
+        _members.Remove(currentMember);
+        UpdatedAt = DateTime.UtcNow;
+
+        return LeaveHouseholdDomainResult.Success();
     }
 }

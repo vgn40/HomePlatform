@@ -1,4 +1,5 @@
 using HomePlatform.Application.Households.CreateHousehold;
+using HomePlatform.Application.Households.LeaveHousehold;
 using HomePlatform.Application.Households.TransferOwnership;
 
 namespace HomePlatform.Api.Households;
@@ -109,6 +110,58 @@ public static class HouseholdEndpoints
                 StatusCodes.Status404NotFound)
             .ProducesProblem(
                 StatusCodes.Status400BadRequest);
+
+        endpoints.MapDelete(
+                "/api/households/{householdId:guid}/membership",
+                async (
+                    Guid householdId,
+                    LeaveHouseholdHandler handler,
+                    CancellationToken cancellationToken) =>
+                {
+                    var command = new LeaveHouseholdCommand(
+                        householdId);
+
+                    var result = await handler.Handle(
+                        command,
+                        cancellationToken);
+
+                    return result.Outcome switch
+                    {
+                        LeaveHouseholdOutcome.Success
+                            => Results.NoContent(),
+
+                        LeaveHouseholdOutcome.Unauthenticated
+                            => Results.Unauthorized(),
+
+                        LeaveHouseholdOutcome.NotFound
+                            => Results.NotFound(),
+
+                        LeaveHouseholdOutcome.Forbidden
+                            => Results.Forbid(),
+
+                        LeaveHouseholdOutcome.Invalid
+                            => Results.Problem(
+                                title: "Cannot leave household",
+                                detail: result.ErrorMessage,
+                                statusCode: StatusCodes.Status409Conflict),
+
+                        _ => throw new InvalidOperationException(
+                            "Unexpected LeaveHousehold outcome.")
+                    };
+                })
+            .RequireAuthorization()
+            .WithName("LeaveHousehold")
+            .WithTags("Households")
+            .Produces(
+                StatusCodes.Status204NoContent)
+            .Produces(
+                StatusCodes.Status401Unauthorized)
+            .Produces(
+                StatusCodes.Status403Forbidden)
+            .Produces(
+                StatusCodes.Status404NotFound)
+            .ProducesProblem(
+                StatusCodes.Status409Conflict);
 
         return endpoints;
     }
