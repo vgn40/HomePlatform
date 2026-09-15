@@ -1,4 +1,5 @@
 using HomePlatform.Application.Households.CreateHousehold;
+using HomePlatform.Application.Households.TransferOwnership;
 
 namespace HomePlatform.Api.Households;
 
@@ -54,6 +55,60 @@ public static class HouseholdEndpoints
                 StatusCodes.Status400BadRequest)
             .Produces(
                 StatusCodes.Status401Unauthorized);
+
+        endpoints.MapPut(
+                "/api/households/{householdId:guid}/ownership",
+                async (
+                    Guid householdId,
+                    TransferOwnershipRequest request,
+                    TransferOwnershipHandler handler,
+                    CancellationToken cancellationToken) =>
+                {
+                    var command = new TransferOwnershipCommand(
+                        householdId,
+                        request.NewOwnerMembershipId);
+
+                    var result = await handler.Handle(
+                        command,
+                        cancellationToken);
+
+                    return result.Outcome switch
+                    {
+                        TransferOwnershipOutcome.Success
+                            => Results.NoContent(),
+
+                        TransferOwnershipOutcome.Unauthenticated
+                            => Results.Unauthorized(),
+
+                        TransferOwnershipOutcome.NotFound
+                            => Results.NotFound(),
+
+                        TransferOwnershipOutcome.Forbidden
+                            => Results.Forbid(),
+
+                        TransferOwnershipOutcome.Invalid
+                            => Results.Problem(
+                                title: "Invalid ownership transfer",
+                                detail: result.ErrorMessage,
+                                statusCode: StatusCodes.Status400BadRequest),
+
+                        _ => throw new InvalidOperationException(
+                            "Unexpected TransferOwnership outcome.")
+                    };
+                })
+            .RequireAuthorization()
+            .WithName("TransferOwnership")
+            .WithTags("Households")
+            .Produces(
+                StatusCodes.Status204NoContent)
+            .Produces(
+                StatusCodes.Status401Unauthorized)
+            .Produces(
+                StatusCodes.Status403Forbidden)
+            .Produces(
+                StatusCodes.Status404NotFound)
+            .ProducesProblem(
+                StatusCodes.Status400BadRequest);
 
         return endpoints;
     }

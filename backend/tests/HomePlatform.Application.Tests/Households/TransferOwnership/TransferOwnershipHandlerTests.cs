@@ -186,6 +186,39 @@ public sealed class TransferOwnershipHandlerTests
         Assert.Equal(0, repository.UpdateCallCount);
     }
 
+    [Theory]
+    [InlineData(HouseholdRole.Member, false)]
+    [InlineData(HouseholdRole.Member, true)]
+    [InlineData(HouseholdRole.Guest, false)]
+    [InlineData(HouseholdRole.Guest, true)]
+    [InlineData(null, false)]
+    [InlineData(null, true)]
+    public async Task Handle_with_unauthorized_caller_and_invalid_target_returns_forbidden(
+        HouseholdRole? callerRole,
+        bool loginlessTarget)
+    {
+        var household = new Household("Mit hjem", Guid.NewGuid());
+        var callerAccountId = Guid.NewGuid();
+        if (callerRole is HouseholdRole role)
+        {
+            AddMember(household, role, callerAccountId);
+        }
+
+        var targetId = loginlessTarget
+            ? AddMember(household, HouseholdRole.Member, null).MembershipId
+            : Guid.NewGuid();
+        var repository = new RecordingHouseholdRepository(household);
+        var handler = CreateHandler(repository, callerAccountId);
+        var before = CaptureState(household);
+
+        var result = await handler.Handle(new TransferOwnershipCommand(household.Id, targetId));
+
+        Assert.Equal(TransferOwnershipOutcome.Forbidden, result.Outcome);
+        AssertUnchanged(household, before);
+        Assert.Equal(1, repository.GetCallCount);
+        Assert.Equal(0, repository.UpdateCallCount);
+    }
+
     private static TransferOwnershipHandler CreateHandler(RecordingHouseholdRepository repository, Guid accountId)
         => new(repository, new FakeCurrentAccount(accountId));
 

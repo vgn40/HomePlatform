@@ -123,6 +123,20 @@ public sealed class CreateHouseholdHandlerTests
         public List<Household> AddedHouseholds { get; } = new();
         public CancellationToken? CancellationToken { get; private set; }
 
+        public Task<Household?> GetByIdAsync(
+            Guid householdId,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("CreateHousehold must not read an existing household.");
+        }
+
+        public Task UpdateAsync(
+            Household household,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("CreateHousehold must not update an existing household.");
+        }
+
         public Task AddAsync(
             Household household,
             CancellationToken cancellationToken = default)

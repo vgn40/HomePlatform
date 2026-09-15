@@ -42,24 +42,28 @@ public sealed class TransferOwnershipHandler
             return TransferOwnershipResult.NotFound();
         }
 
-        var currentMember = household.Members.FirstOrDefault(
-            member => member.AccountId == accountId);
-
-        if (currentMember is null ||
-            currentMember.Role != HouseholdRole.Owner)
-        {
-            return TransferOwnershipResult.Forbidden();
-        }
-
         var transferResult = household.TransferOwnership(
             accountId,
             command.NewOwnerMembershipId);
 
         if (!transferResult.IsSuccess)
         {
-            return TransferOwnershipResult.Invalid(
-                transferResult.ErrorMessage
-                ?? "Ownership transfer failed.");
+            return transferResult.Error switch
+            {
+                TransferOwnershipError.CurrentAccountNotOwner
+                    => TransferOwnershipResult.Forbidden(),
+                TransferOwnershipError.NewOwnerNotFound
+                    => TransferOwnershipResult.Invalid(
+                        "New owner is not a member of this household."),
+                TransferOwnershipError.NewOwnerHasNoAccount
+                    => TransferOwnershipResult.Invalid(
+                        "New owner must be linked to an account."),
+                TransferOwnershipError.CannotTransferToSelf
+                    => TransferOwnershipResult.Invalid(
+                        "Owner cannot transfer ownership to themselves."),
+                _ => throw new InvalidOperationException(
+                    "Unexpected TransferOwnership domain error.")
+            };
         }
 
         await _householdRepository.UpdateAsync(

@@ -15,15 +15,14 @@ public sealed class UnexpectedErrorContractTests
     [Fact]
     public async Task Unexpected_repository_failure_returns_safe_500()
     {
+        var repository = new ThrowingHouseholdRepository();
         await using var factory = new HomePlatformApiFactory(
             "Host=127.0.0.1;Port=1;Database=homeplatform;" +
             "Username=homeplatform;Password=homeplatform-dev",
             services =>
             {
                 services.RemoveAll<IHouseholdRepository>();
-                services.AddSingleton<
-                    IHouseholdRepository,
-                    ThrowingHouseholdRepository>();
+                services.AddSingleton<IHouseholdRepository>(repository);
             });
         using var client = factory.CreateClient();
         using var request = new HttpRequestMessage(
@@ -38,6 +37,8 @@ public sealed class UnexpectedErrorContractTests
 
         using var response = await client.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(1, repository.AddCallCount);
 
         Assert.Equal(
             HttpStatusCode.InternalServerError,
@@ -72,10 +73,27 @@ public sealed class UnexpectedErrorContractTests
     private sealed class ThrowingHouseholdRepository
         : IHouseholdRepository
     {
+        public int AddCallCount { get; private set; }
+
+        public Task<Household?> GetByIdAsync(
+            Guid householdId,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("CreateHousehold must not read an existing household.");
+        }
+
+        public Task UpdateAsync(
+            Household household,
+            CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("CreateHousehold must not update an existing household.");
+        }
+
         public Task AddAsync(
             Household household,
             CancellationToken cancellationToken = default)
         {
+            AddCallCount++;
             throw new InvalidOperationException(InternalDetail);
         }
     }

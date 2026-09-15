@@ -79,7 +79,7 @@ public class Household
 
         return Result.Success();
     }
-    public Result TransferOwnership(
+    public TransferOwnershipDomainResult TransferOwnership(
         Guid currentOwnerAccountId,
         Guid newOwnerMembershipId)
     {
@@ -90,8 +90,8 @@ public class Household
 
         if (currentOwner is null)
         {
-            return Result.Failure(
-                "Current account is not an owner of this household.");
+            return TransferOwnershipDomainResult.Failure(
+                TransferOwnershipError.CurrentAccountNotOwner);
         }
 
         var newOwner = _members.FirstOrDefault(
@@ -99,20 +99,20 @@ public class Household
 
         if (newOwner is null)
         {
-            return Result.Failure(
-                "New owner is not a member of this household.");
+            return TransferOwnershipDomainResult.Failure(
+                TransferOwnershipError.NewOwnerNotFound);
         }
 
         if (newOwner.MembershipId == currentOwner.MembershipId)
         {
-            return Result.Failure(
-                "Owner cannot transfer ownership to themselves.");
+            return TransferOwnershipDomainResult.Failure(
+                TransferOwnershipError.CannotTransferToSelf);
         }
 
         if (newOwner.AccountId is null)
         {
-            return Result.Failure(
-                "New owner must be linked to an account.");
+            return TransferOwnershipDomainResult.Failure(
+                TransferOwnershipError.NewOwnerHasNoAccount);
         }
 
         newOwner.ChangeRole(HouseholdRole.Owner);
@@ -120,6 +120,6 @@ public class Household
 
         UpdatedAt = DateTime.UtcNow;
 
-        return Result.Success();
+        return TransferOwnershipDomainResult.Success();
     }
 }

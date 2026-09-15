@@ -2,6 +2,7 @@ using HomePlatform.Application.Accounts.Refresh;
 using HomePlatform.Application.Accounts.Register;
 using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Application.Households.CreateHousehold;
+using HomePlatform.Application.Households.TransferOwnership;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HomePlatform.Application;
@@ -21,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<RefreshAccountHandler>();
 
         services.AddScoped<CreateHouseholdHandler>();
+        services.AddScoped<TransferOwnershipHandler>();
 
         return services;
     }

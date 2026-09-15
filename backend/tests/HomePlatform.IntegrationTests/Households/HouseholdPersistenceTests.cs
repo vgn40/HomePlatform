@@ -67,6 +67,65 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         Assert.Equal(HouseholdRole.Owner, reloadedOwner.Role);
     }
 
+    [Theory]
+    [InlineData(HouseholdRole.Member)]
+    [InlineData(HouseholdRole.Guest)]
+    public async Task Repository_tracked_transfer_persists_roles_and_preserves_memberships(
+        HouseholdRole targetRole)
+    {
+        var ownerAccountId = Guid.NewGuid();
+        var targetAccountId = Guid.NewGuid();
+        await Factory.CreateIdentityAccountAsync(ownerAccountId);
+        await Factory.CreateIdentityAccountAsync(targetAccountId);
+        var household = new Household("Ownership transfer", ownerAccountId);
+        var ownerMembershipId = Assert.Single(household.Members).MembershipId;
+        Assert.True(household.AddMember(targetRole, targetAccountId).IsSuccess);
+        Assert.True(household.AddMember(HouseholdRole.Guest).IsSuccess);
+        var targetMembershipId = Assert.Single(household.Members,
+            member => member.AccountId == targetAccountId).MembershipId;
+        var expectedMemberships = household.Members
+            .OrderBy(member => member.MembershipId)
+            .Select(member => (member.MembershipId, member.AccountId))
+            .ToArray();
+
+        await using (var setupContext = CreateContext())
+        {
+            await new HouseholdRepository(setupContext).AddAsync(household);
+        }
+
+        var interceptor = new SaveChangesInvocationInterceptor();
+        await using (var transferContext = CreateContext(interceptor))
+        {
+            var repository = new HouseholdRepository(transferContext);
+            var loaded = await repository.GetByIdAsync(household.Id);
+            Assert.NotNull(loaded);
+            Assert.Equal(expectedMemberships.Length, loaded.Members.Count);
+            Assert.Equal(EntityState.Unchanged, transferContext.Entry(loaded).State);
+            Assert.All(loaded.Members, member =>
+                Assert.Equal(EntityState.Unchanged, transferContext.Entry(member).State));
+
+            var result = loaded.TransferOwnership(ownerAccountId, targetMembershipId);
+
+            Assert.True(result.IsSuccess, result.Error?.ToString());
+            await repository.UpdateAsync(loaded);
+            Assert.Equal(1, interceptor.AsyncInvocationCount);
+        }
+
+        await using var verificationContext = CreateContext();
+        var reloaded = await LoadHousehold(verificationContext, household.Id);
+        Assert.Equal(expectedMemberships.Length, reloaded.Members.Count);
+        Assert.Equal(expectedMemberships, reloaded.Members
+            .OrderBy(member => member.MembershipId)
+            .Select(member => (member.MembershipId, member.AccountId))
+            .ToArray());
+        Assert.Equal(HouseholdRole.Member, Assert.Single(reloaded.Members,
+            member => member.MembershipId == ownerMembershipId).Role);
+        Assert.Equal(HouseholdRole.Owner, Assert.Single(reloaded.Members,
+            member => member.MembershipId == targetMembershipId).Role);
+        Assert.Equal(HouseholdRole.Guest, Assert.Single(reloaded.Members,
+            member => member.AccountId is null).Role);
+    }
+
     [Fact]
     public async Task Repository_add_with_already_cancelled_token_writes_zero_rows()
     {
