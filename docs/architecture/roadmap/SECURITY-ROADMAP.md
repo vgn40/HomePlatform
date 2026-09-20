@@ -1,17 +1,27 @@
 # HomePlatform Security Roadmap
 
 Status: **Authoritative security plan**  
-Last reviewed: **2026-09-14**
+Last reviewed: **2026-09-20**, committed `main@7162c35`
 Scope: authentication, authorization, API/data protection, secure operations,
-and blocking verification gates for the six-month plan  
+and feature/release verification gates; not a pre-product execution schedule
 Rule: authentication proves Account identity; authorization decides what that
 Account's current Membership may do to a specific Household resource.
 
-Target terminology follows accepted
-[ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md).
+AS-IS terminology follows
+[ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md);
+[ADR 0007](../adr/0007-person-as-stable-human-identity.md) accepts the Person target.
+Relationships never grant access implicitly; Person/CareCircle permissions are
+not implemented or predesigned here.
 The current durable schema implements the first Account/Membership identity
 slice; linking, last-Owner concurrency, and resource authorization remain gated
 follow-up work.
+
+This document owns security requirements, not execution order.
+[NEXT-STEPS](NEXT-STEPS.md) owns prioritization. Phase numbers below retain the
+older release-checklist grouping and do not schedule new features. “PASS for
+Phase 1” and local test totals are historical evidence, not fresh runtime or
+hosted CI verification. This review inspected source only; DeleteAccount work
+in the dirty tree is excluded from the committed baseline.
 
 ## Current security posture
 
@@ -22,7 +32,7 @@ follow-up work.
 | PostgreSQL readiness without credential disclosure | PASS | `/ready` reports ready/unavailable only. |
 | Known NuGet vulnerability scan | PASS (2026-09-02) | connected NuGet audit reported no known vulnerable direct or transitive packages in any solution project; the workflow reruns the time-sensitive check. |
 | Authentication/account lifecycle | PARTIAL; release gate OPEN | roleless Identity persistence and implemented/verified registration exist; bearer sign-in and anonymous Refresh are implemented; refresh validates expiry/security stamp and issues new access/refresh tokens; confirmation/recovery/logout/revocation and broader release gates remain incomplete. |
-| Authorization/resource checks | FAIL | not implemented. |
+| Authorization/resource checks | PARTIAL | Transfer/leave/close check current loaded membership/Owner authority. All Household routes remain Testing-only; nonmember concealment is committed and the affected test slice passes locally; current-Account validity and full real-bearer lifecycle evidence remain open. |
 | Trusted creator identity | PASS for Testing slice | command carries Name only; `ICurrentAccount` derives the actor from authenticated claims; anonymous/malformed and caller-supplied AccountId tests prove zero impersonation. |
 | Rate limiting/lockout policy | INCOMPLETE | sign-in uses Identity lockout enforcement with lockoutOnFailure enabled; endpoint rate limiting and the broader release policy remain incomplete. |
 | HTTPS/reverse-proxy production policy | FAIL | not implemented; local launch is HTTP. |
@@ -30,7 +40,7 @@ follow-up work.
 | Secrets management | PARTIAL | disposable development credentials are tracked in example/development files; no production secret store/configuration exists. |
 | Logging redaction policy | FAIL | default logging exists; no explicit sensitive-data rules/tests. |
 | Security integration tests | PARTIAL | fake-auth CreateHousehold tests cover 401, actor trust, zero rows, Production 404, and unexpected-error non-disclosure; registration tests now exercise UserManager and PostgreSQL; bearer sign-in tests cover token issuance, authenticated follow-up requests, wrong-password failed counts, and locked-account rejection; real-bearer Refresh tests cover renewal, protected AccountId persistence, required/invalid/tampered/expired/stamp-invalidated tokens, public error non-disclosure, one JSON response, and anonymous fallback-policy behavior; IDOR, client/revocation lifecycle, and broader log redaction proof remain incomplete. |
-| Database least privilege/backups/restore | NOT VERIFIED | no deployed database or production roles exist. |
+| Database least privilege/backups/restore | NOT VERIFIED | deployed databases, production roles and operational controls were not inspected. |
 
 The live Program maps anonymous `POST /api/accounts/register`,
 `POST /api/accounts/sign-in`, and `POST /api/accounts/refresh` in Production;
@@ -40,12 +50,14 @@ UserNameIndex duplicate-race mapping, typed errors, and OpenAPI are implemented
 and verified in `e2fca98` (historical 72/72 solution tests). Bearer sign-in is
 implemented in `4180096`. Refresh is implemented with permanent PostgreSQL
 coverage; [historical Refresh verification](NEXT-STEPS.md#refresh-verification--2026-09-13)
-is 105/105 tests. The [Account-reference review](NEXT-STEPS.md#account-reference-integrity-verification--2026-09-14)
-adds FK and upgrade evidence with the current full-suite result. Release gates,
+is 105/105 tests. The historical [Account-reference review](NEXT-STEPS.md#account-reference-integrity-verification--2026-09-14)
+adds FK and upgrade evidence with its historical 119/119 full-suite result. Release gates,
 confirmation/recovery/logout/revocation and the independent email lifecycle
 policy remain open. Keep the
-Household route absent from Production until current-Account validation,
-resource authorization, and the remaining release gates are ready;
+Household routes absent from Production until resource authorization,
+applicable release gates and an explicit token-lifetime/revocation risk decision
+are ready; immediate current-Account validation is conditional hardening, not
+an automatic prerequisite for Person development;
 Account-reference integrity is verified locally.
 
 ### Verified Refresh behavior and remaining session evidence
@@ -68,22 +80,41 @@ sensitive-log redaction, or shared Data Protection key continuity gates. New
 tokens alone do not prove one-time consumption or server-side replay detection.
 The authenticated fallback policy is a test override, not production policy.
 
+### Committed lifecycle coverage — verified locally 2026-09-20
+
+Domain and Application suites cover transfer/leave/close outcomes. PostgreSQL
+endpoint suites cover denied actors, unchanged state on rejection, successful
+mutation and Production non-exposure. They use test authentication; real-bearer
+registration/sign-in/refresh coverage is separate. The affected 117-test slice
+passed locally; [NEXT-STEPS](NEXT-STEPS.md#verified-locally) records the command
+and scope. Full real-bearer lifecycle/optimistic-concurrency proof remains open.
+
 ## Adopted deletion and ownership requirements
 
 [DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical. Account-reference
-integrity is IMPLEMENTED / VERIFIED locally: nullable FK, ClientNoAction /
+integrity is IMPLEMENTED, with historical local verification on 2026-09-14: nullable FK, ClientNoAction /
 NO ACTION and PostgreSQL integrity/upgrade proof. The protected-request
-current-Account check, DeleteAccount, LeaveHousehold, TransferOwnership and
-CloseHousehold are NOT YET IMPLEMENTED. Follow the
-[current next-step order](NEXT-STEPS.md): Household ownership lifecycle starting
-with TransferOwnership test-first, current-Account validity, then DeleteAccount.
+current-Account check and DeleteAccount are NOT IMPLEMENTED in committed main.
+LeaveHousehold, TransferOwnership and CloseHousehold are IMPLEMENTED with
+Testing-only endpoints and existing membership/Owner checks. Follow the
+[current next-step order](NEXT-STEPS.md) for product/domain prioritization;
+review existing DeleteAccount work when its feature/release dependency is reached.
 
-**ADOPTED:** after DeleteAccount successfully commits, new protected product
-requests from that Account must be denied even with an unexpired access token.
-Current opaque access validation does not reload the Account; the existing
-Refresh security-stamp check does not close that gap. Add focused current
-Account existence/validity checking and current Household membership/role
-authorization; no custom session/OAuth framework is required.
+### Deferred immediate Account validity — decision 2026-09-20
+
+**DEFERRED TECHNICAL DEBT (TD-020):** the former immediate-denial requirement is
+superseded as a universal prerequisite. An already-issued short-lived access
+token may remain usable until expiry after Account deletion unless immediate
+server-side revocation/current-Account validation is implemented. Exact token
+lifetime and the acceptable release window remain OPEN; this is a known trade-off,
+not a claim of immediate revocation or production approval.
+
+Refresh must reject deleted/invalid Accounts independently of access expiry.
+The existing expiry/current-user security-stamp validation supports that boundary;
+DeleteAccount integration evidence must verify it. Household membership/role
+checks remain mandatory and separate from Account validity. Pull immediate
+cutoff forward when a concrete product need or release risk requires it; no
+custom session/OAuth framework is implied.
 
 **ADOPTED:** a continuing Household has an Account-linked Owner. Last Owner
 requires explicit TransferOwnership to a concrete eligible Account-linked
@@ -106,14 +137,15 @@ Article 6 bases, providers/regions, future CloseHousehold record handling and
 precise lifecycle concurrency/transaction APIs remain OPEN. No grace period is
 adopted.
 
-## Trust model
+## Target trust model
 
 Untrusted input includes every path, query, header, body field, mobile state, cached permission, and Guid supplied by a client. Random UUIDs are not authorization.
 
 Trusted inputs are created or validated on the server:
 
-- authenticated subject/AccountId from ASP.NET Core authentication, followed
-  by current Account existence/validity checking for protected product requests;
+- authenticated subject/AccountId from ASP.NET Core authentication; current
+  Account existence/validity checking is deferred hardening with the expiry
+  window described above, not an AS-IS guarantee;
 - current Membership/role loaded from PostgreSQL for the requested Household;
 - server timestamps and generated invitation/reset/session tokens.
 - configuration from approved secret/configuration providers.
@@ -145,21 +177,20 @@ Domain invariant + permission decision
 single transaction / safe response
 ```
 
-In Phase 1, `CreateHouseholdCommand` contains Name only and injects a minimal
-Application current-account port into the handler. A scoped API adapter uses
-`IHttpContextAccessor`, parses exactly the configured subject/NameIdentifier
-claim as Guid, and fails closed on missing/malformed identity through a distinct
-unauthenticated outcome mapped to 401 with zero mutation. Map the endpoint only
-in the `Testing` environment, whose integration host installs a real default
-authenticate/challenge scheme; prove a Production host returns 404 because the
-route is absent. Phase 2 activates the same adapter under Identity. HTTP
-requests and commands never select their actor, and health endpoints must be
-explicitly anonymous when a fallback policy is introduced. They currently have
-no AllowAnonymous metadata and there is no production fallback policy.
+The implemented `CreateHouseholdCommand` contains Name only. Its handler
+obtains the actor through ICurrentAccount, whose scoped API adapter parses an
+authenticated NameIdentifier/sub Guid and rejects missing/malformed identity.
+This is claim validation, not a database Account-validity check. All Household
+routes remain Testing-only. The normal app configures Identity bearer auth;
+test factories can explicitly substitute test authentication for focused tests.
+
+Requests never select their actor. Health endpoints must be explicitly anonymous
+if a fallback policy is introduced; they currently have no AllowAnonymous
+metadata and there is no production fallback policy.
 
 ## Authentication architecture decision
 
-### Recommended six-month default
+### Implemented foundation and remaining requirements
 
 Use ASP.NET Core Identity in Infrastructure with PostgreSQL EF stores:
 
@@ -171,7 +202,7 @@ Use ASP.NET Core Identity in Infrastructure with PostgreSQL EF stores:
   authority; create a Profile only when concrete behavior and ownership justify it.
   Do not invent an Account aggregate or equate Account and Membership identity.
 
-For the first-party React Native/Expo client, the default is ASP.NET Core Identity's built-in opaque bearer access/refresh-token mode. Select exactly one public authentication mode: do not expose an unchanged `MapIdentityApi` cookie switch, reject `useCookies=true` (or map a deliberately bearer-only Identity-backed boundary), and remove the Phase 1 fake scheme from the Phase 2 app/test host. If the ADR selects cookies instead, the Browser branch becomes Phase 2 blocking work. Microsoft documents that these tokens are proprietary, not JWTs, and intended for simple first-party clients that cannot use cookies—not as a general OAuth/OIDC token server. [Identity API guidance](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0)
+For the first-party React Native/Expo client, the default is ASP.NET Core Identity's built-in opaque bearer access/refresh-token mode. Select exactly one public authentication mode: do not expose an unchanged `MapIdentityApi` cookie switch, reject `useCookies=true` (or map a deliberately bearer-only Identity-backed boundary), and use real bearer authentication for authentication/security proof while retaining explicit test-auth overrides for focused tests. If the ADR selects cookies instead, the Browser branch becomes Phase 2 blocking work. Microsoft documents that these tokens are proprietary, not JWTs, and intended for simple first-party clients that cannot use cookies—not as a general OAuth/OIDC token server. [Identity API guidance](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity-api-authorization?view=aspnetcore-10.0)
 
 Do not expose built-in login failure detail unchanged if the product promises non-enumeration. Use a thin Identity-backed boundary/filter that maps unknown user, wrong password, unconfirmed/not-allowed, and locked-out failures to the same public 401 ProblemDetails shape; preserve the internal reason only in protected metrics/logs.
 
@@ -192,11 +223,10 @@ Do not:
 - serialize refresh so concurrent 401s do not create a refresh race.
 - replace the client-held refresh token with the token returned by the framework endpoint, but do not claim one-time rotation, server-side consumed-token replay detection, or per-device revocation. Test and document whether the prior protected token remains reusable until expiry or a security-stamp change.
 - local logout deletes device tokens. Password reset/change and “sign out everywhere” update the Identity security stamp.
-- document that current access tickets can remain valid until expiration; the
-  exact lifetime remains OPEN. The adopted DeleteAccount rule is stricter:
-  after successful commit, a current-Account check must deny every new protected
-  product request from that Account regardless of ticket expiry. Test this
-  separately from logout/password-change validity windows.
+- document that current access tickets can remain valid until expiration,
+  including after Account deletion. Exact lifetime and acceptable release risk
+  remain OPEN; immediate current-Account validation is deferred under TD-020.
+  Test deleted/invalid-Account Refresh denial separately from access expiry.
 
 Before public beta, make an explicit acceptance decision: if the product requires immediate per-device server revocation, device-session inventory, refresh-token reuse detection, social federation, third-party clients, standard OAuth/OIDC/JWT interoperability, or SSO, Identity's simple bearer mode may not suffice. Select an established OAuth/OIDC server/provider and Authorization Code + PKCE rather than extending a custom token server.
 
@@ -215,8 +245,10 @@ If Azure is selected, persist ASP.NET Core Data Protection keys in an environmen
 ## Required security classification
 
 The category is the latest acceptable gate. Work can start earlier. Numeric
-phases refer to the masterplan; letters A–G refer to the adopted deletion
-dependencies. NEXT-STEPS owns the current implementation order.
+phases refer to the historical masterplan grouping; letters A–G refer to the adopted deletion
+evidence groups. NEXT-STEPS owns the current implementation order. “Before
+multi-user features” means before exposing the affected capability to users,
+not a ban on designing or developing Person in isolated Testing slices.
 
 | Topic | Classification | Phase | Blocking acceptance condition |
 |---|---|---:|---|
@@ -236,7 +268,7 @@ dependencies. NEXT-STEPS owns the current implementation order.
 | HTTPS | BEFORE MULTI-USER FEATURES | 2/6 | every non-loopback environment handles credentials/tokens only over TLS; proxy/forwarded headers correct. |
 | CORS | BEFORE PUBLIC BETA | 5/6 | native needs none; if web exists, exact environment origins/methods/headers and credentials policy tested. |
 | Secrets management | NOW | 1/6 | Phase 1 now: only disposable examples in source, local user-secrets/environment, startup validation. Before public beta: managed deployment store/identity and missing-secret fail-closed proof. |
-| Account-reference integrity and deletion access | BEFORE DELETEACCOUNT / REAL-USER RELEASE | A–E in deletion design | guarding nullable AccountId FK, explicit last-Owner resolution and current-Account checks implemented; atomic all-membership deletion and post-commit denial proven. |
+| Account-reference integrity and deletion access | AFFECTED DELETEACCOUNT / REAL-USER RELEASE | Lifecycle evidence groups in deletion design | FK and primitives exist; review existing uncommitted atomic all-membership deletion/rollback and prove Refresh denial. Decide acceptable access expiry window; immediate current-Account checks are conditional TD-020 hardening. |
 | Export/deletion/shared-record fate | BEFORE REAL-USER RELEASE | F/G in deletion design | authorized export, approved retention and shared-data outcomes implemented/tested; unresolved legal/provider/backup decisions completed. |
 | Production configuration | BEFORE PUBLIC BETA | 6 | restricted hosts, correct proxy/TLS, safe non-development logging/errors, no development OpenAPI/sample credentials. |
 | Database least privilege | BEFORE PUBLIC BETA | 6 | runtime role cannot change schema; separate migration identity; TLS, backup, and restore proven. |
@@ -277,10 +309,22 @@ Domain invariants still apply even to Owner: a continuing Household must retain
 an Account-linked Owner. Last-Owner departure requires explicit TransferOwnership
 or explicit CloseHousehold under the adopted deletion design. No Member/Guest
 is automatically promoted, and a loginless HouseholdMember cannot be Owner.
-Exact endpoint/permission details for the new lifecycle operations remain for
-implementation review; the illustrative matrix does not replace these rules.
+Current lifecycle contracts are recorded in
+[TARGET-ARCHITECTURE](../target/TARGET-ARCHITECTURE.md#current-architecture).
+Leave permits Member/Guest and refuses every Owner with 409; transfer and close
+require Owner. The rest of this matrix is a target for unimplemented features,
+not implemented access control.
 
 ### 401/403/404 policy
+
+**Committed AS-IS (`7162c35`):** transfer/leave/close return 404 for an absent
+Household or a nonmember. Known Member/Guest actors receive 403 when transfer
+or close requires Owner. Anonymous/invalid authentication returns 401. Leave
+refuses every Owner with 409 and permits Member/Guest. Transfer checks actor
+authority before the target: an outsider with an invalid target still gets 404;
+an authorized Owner receives normal validation. The affected tests pass locally.
+Apply the following policy to new flows with appropriate evidence; NEXT-STEPS
+alone schedules the work.
 
 - 401: no valid authentication.
 - 403: authenticated known member lacks the requested operation and revealing the household relationship is acceptable.
@@ -371,7 +415,7 @@ Concurrent_owner_transfers_preserve_at_least_one_owner
 - reset token expires/cannot be reused and is bound to the user/purpose.
 - password reset changes security stamp and old credentials/session behavior matches the documented decision.
 
-### DeleteAccount and Household lifecycle — required future proof
+### DeleteAccount and Household lifecycle — acceptance requirements
 
 - resolve ownership across all Households, then explicitly delete every
   Account-linked membership before Identity deletion; prove no loginless conversion;
@@ -450,7 +494,7 @@ Log event name, safe pseudonymous user/resource identifiers, request/trace ID, o
 
 ## Phase security gates
 
-### Phase 1 gate
+### Phase 1 gate — historical 2026-09-02 evidence
 
 - **PASS:** ADR 0006 is explicitly Accepted and the durable core identity schema
   aligns with it.

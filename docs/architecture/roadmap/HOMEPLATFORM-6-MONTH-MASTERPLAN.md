@@ -1,10 +1,25 @@
 # HomePlatform Six-Month Masterplan
 
-Status: **Authoritative strategic roadmap**  
-Last reviewed: **2026-09-14**
+Status: **Historical strategic plan — superseded 2026-09-19**
+Historical snapshot: **2026-09-14**
 Planning horizon: approximately 26 weeks
 
-## Executive direction
+## Current authority
+
+[NEXT-STEPS.md](NEXT-STEPS.md) is the sole execution order. The project now
+prioritizes Person-centered product/domain development (decision 2026-09-20)
+through incremental .NET/backend slices; hardening is retained with risk/release
+triggers. See [ADR 0007](../adr/0007-person-as-stable-human-identity.md).
+Tasks, Shopping, Events
+and a six-month beta schedule are not delivery commitments.
+
+Everything below is preserved historical planning, including “next” instructions,
+phase statuses and test counts. Its claims that TransferOwnership/Leave/Close
+are unimplemented are superseded by committed `main@1ca1dd0`; they are retained
+to explain the old plan, not to describe current code. Security/privacy release
+requirements remain in their active documents.
+
+## Historical executive direction
 
 Deliver a small, secure household-coordination beta through one vertical slice
 at a time. Keep the accepted four-project modular monolith and avoid speculative

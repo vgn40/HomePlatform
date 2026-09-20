@@ -6,6 +6,18 @@ Status: **Historical documentation audit; registration findings resolved in foll
 
 Inspected baseline: **main@584bcaaff1b4db33481e60ed4d95bfc0ffca325e plus existing uncommitted Account Registration work**
 
+## Current-state pointer — 2026-09-19
+
+Historical file locations are retained as text where later moves broke links.
+The historical audit and follow-up below retain their original evidence and
+scope. They do not describe current main. Source inspection at `main@1ca1dd0`
+confirms registration, bearer sign-in, refresh, the Account FK and
+TransferOwnership/LeaveHousehold/CloseHousehold through Testing-only routes.
+Current-Account validity and Household optimistic concurrency remain absent;
+DeleteAccount work is uncommitted. This documentation review did not rerun
+runtime tests or verify hosted CI/deployment. Read [NEXT-STEPS](roadmap/NEXT-STEPS.md)
+for current status and the sole execution order.
+
 ## Registration completion follow-up — 2026-09-07
 
 Account Registration is implemented and committed in `e2fca98`. The verified
@@ -349,7 +361,7 @@ unauthenticated outcome narrowly, constructs Domain, maps argument validation,
 passes cancellation to the repository, and returns only after the commit.
 Repository failures and programming errors are not swallowed.
 
-[RegisterAccountHandler](../../backend/src/HomePlatform.Application/Accounts/RegisterAccount/RegisterAccountHandler.cs)
+`backend/src/HomePlatform.Application/Accounts/RegisterAccount/RegisterAccountHandler.cs` (historical path)
 lines 8–15 is only a forwarding use-case boundary. Keeping it is reasonable for
 consistent composition and future policy; no handler interface, mediator,
 pipeline framework, or Domain Service is needed to justify eight lines of
@@ -621,7 +633,7 @@ deployment/scaling/ownership requirement is evidenced.
 
 ### F01 — Medium — Registration accepts invalid email and turns invalid input into 500
 
-**Location:** [RegisterAccountRequest.cs](../../backend/src/HomePlatform.Api/Accounts/RegisterAccountRequest.cs)
+**Location:** `backend/src/HomePlatform.Api/Accounts/RegisterAccountRequest.cs` (historical path)
 lines 3–5; [IdentityAccountRegistration.cs](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountRegistration.cs)
 lines 15–26; [Infrastructure DI](../../backend/src/HomePlatform.Infrastructure/DependencyInjection.cs)
 lines 32–34.
@@ -648,7 +660,7 @@ separate code task. **Open; no code changed.**
 
 **Location:** [IdentityAccountRegistration.cs](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountRegistration.cs)
 lines 24–35; [Identity migration](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/20260904100319_AddIdentityPersistence.cs)
-lines 111–120; [registration tests](../../backend/tests/HomePlatform.IntegrationTests/RegisterAccountEndpointTests.cs)
+lines 111–120; `backend/tests/HomePlatform.IntegrationTests/RegisterAccountEndpointTests.cs` (historical path)
 lines 76–100.
 
 **Observation:** the migration's UserNameIndex is unique; EmailIndex is not.
@@ -736,7 +748,7 @@ triggers. **Resolved in documentation only.**
 
 ### F06 — Low — Registration cancellation is checked only before starting Identity work
 
-**Location:** [IAccountRegistration.cs](../../backend/src/HomePlatform.Application/Accounts/IAccountRegistration.cs)
+**Location:** `backend/src/HomePlatform.Application/Accounts/IAccountRegistration.cs` (historical path)
 lines 5–8; [IdentityAccountRegistration.cs](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountRegistration.cs)
 lines 10–26.
 

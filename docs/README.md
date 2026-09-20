@@ -6,24 +6,28 @@ and generated research evidence.
 
 ## Start here
 
-1. [Target architecture](architecture/target/TARGET-ARCHITECTURE.md) — what is
-   implemented now and what the technical target is.
-2. [Six-month roadmap](architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
-   — the strategic delivery sequence.
-3. [Next steps](architecture/roadmap/NEXT-STEPS.md) — the current executable
-   order and stop-gate.
+1. [Product scope](product/PRODUCT-SCOPE.md) — shared life across households,
+   relationships and changing family structures.
+2. [Architecture overview](architecture/README.md) — what exists today.
+3. [Domain model](architecture/target/DOMAIN-MODEL.md) and
+   [ADR 0007](architecture/adr/0007-person-as-stable-human-identity.md) — accepted
+   Person-centered target, distinct from implementation and future care concepts.
+4. [Next steps](architecture/roadmap/NEXT-STEPS.md) — sole execution order;
+   design the smallest incremental Person foundation next.
+5. [Technical debt](architecture/roadmap/TECHNICAL-DEBT-REGISTER.md),
+   [security](architecture/roadmap/SECURITY-ROADMAP.md) and
+   [deletion design](privacy/DELETION-DESIGN.md) — known risks and release gates.
+6. [Future concepts](product/PRODUCT-SCOPE.md#future-care-and-cross-household-exploration)
+   — CareCircle and intentionally undecided cross-Household ideas.
 
-Current implementation includes the Testing-only CreateHousehold path and
-roleless Identity persistence. Account Registration is implemented and committed in
-`e2fca98`, with an anonymous endpoint in every environment and a verified
-historical 72/72-test registration baseline. Bearer sign-in is implemented in
-`4180096`; anonymous `POST /api/accounts/refresh` is implemented, validates
-expiry/security stamp, and issues new access/refresh tokens. Permanent
-real-bearer PostgreSQL tests prove refresh and the protected follow-up request;
-[current verification](architecture/roadmap/NEXT-STEPS.md#refresh-verification--2026-09-13)
-records 105/105 passing tests. The remaining account lifecycle, Household resource authorization, and frontend
-remain incomplete. See the
-[2026-09-06 repo audit](architecture/DDD-ARCHITECTURE-AUDIT.md) and its registration follow-up for evidence; historical Phase 1 checks do not certify the registration slice.
+**AS-IS:** committed `main@7162c35` has registration, bearer sign-in, refresh,
+Account-linked memberships, the Account FK and create/transfer/leave/close.
+Household routes are Testing-only; nonmember concealment is committed and the
+affected 117-test slice passed locally. DeleteAccount remains uncommitted,
+unchanged and not claimed complete. **TARGET:** Person and
+Relationship are accepted but absent from source. **FUTURE:** CareCircle is
+planned, not implemented. See [local verification](architecture/roadmap/NEXT-STEPS.md#verified-locally);
+no hosted CI or deployment verification is claimed.
 
 ## Authoritative documents
 
@@ -33,7 +37,7 @@ remain incomplete. See the
 | Candidate context boundaries | [CONTEXT-MAP.md](architecture/target/CONTEXT-MAP.md) |
 | Domain model and language | [DOMAIN-MODEL.md](architecture/target/DOMAIN-MODEL.md) |
 | Architecture decisions | [ADR index](architecture/adr/README.md) |
-| Strategic roadmap | [HOMEPLATFORM-6-MONTH-MASTERPLAN.md](architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md) |
+| Historical feature plan (non-authoritative) | [HOMEPLATFORM-6-MONTH-MASTERPLAN.md](architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md) |
 | Immediate implementation order | [NEXT-STEPS.md](architecture/roadmap/NEXT-STEPS.md) |
 | Security plan | [SECURITY-ROADMAP.md](architecture/roadmap/SECURITY-ROADMAP.md) |
 | Technical debt | [TECHNICAL-DEBT-REGISTER.md](architecture/roadmap/TECHNICAL-DEBT-REGISTER.md) |
@@ -51,7 +55,7 @@ remain incomplete. See the
 
 ## Roadmap and security
 
-- [Six-month masterplan](architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
+- [Historical six-month masterplan](architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
 - [Next development steps](architecture/roadmap/NEXT-STEPS.md)
 - [Security roadmap](architecture/roadmap/SECURITY-ROADMAP.md)
 - [Technical-debt register](architecture/roadmap/TECHNICAL-DEBT-REGISTER.md)
@@ -65,9 +69,10 @@ remain incomplete. See the
 - [Processing register](privacy/PROCESSING-REGISTER.md) — purposes and unresolved legal/operational facts.
 - [Privacy notice requirements](privacy/PRIVACY-NOTICE-REQUIREMENTS.md) — initial publication requirements.
 
-The lifecycle decisions are ADOPTED; the Account FK, current-Account validity
-check, DeleteAccount, LeaveHousehold, TransferOwnership and CloseHousehold are
-NOT YET IMPLEMENTED. Account-reference integrity is the next CODE task.
+The lifecycle decisions are ADOPTED. Account-reference integrity and the three
+Household lifecycle operations are IMPLEMENTED in the committed snapshot;
+current-Account validity and DeleteAccount remain incomplete. Historical local
+test evidence is explicitly dated in [NEXT-STEPS](architecture/roadmap/NEXT-STEPS.md#verified-locally).
 
 ## Product
 

@@ -2,7 +2,8 @@
 
 Status: **Initial working register; legal and operational fields OPEN**
 
-Reviewed: **2026-09-13**
+Source status reviewed: **2026-09-19**, committed `main@1ca1dd0`.
+Uncommitted DeleteAccount work is excluded; legal/operational facts remain OPEN.
 
 ## Scope
 
@@ -18,7 +19,7 @@ task brief; unspecified audit conclusions are not inferred.
 |---|---|---|---|---|
 | Account registration | Account holders; email/username, password passed to Identity, identity/security fields | Create credential-bearing Account | Implemented in source; production processing NOT VERIFIED | OPEN |
 | Sign-in / refresh / lockout | Account holders; submitted credentials, protected tokens, security stamp and lockout state | Authenticate, renew access, limit failed sign-in | Implemented in source; current-Account validation on protected requests NOT YET IMPLEMENTED | OPEN |
-| Household participation | Account-linked and loginless people; Household name/IDs/timestamps, MembershipId, AccountId, Role | Shared coordination and Household authority | Testing-only creation/model; resource authorization and leave/transfer/close NOT YET IMPLEMENTED | OPEN |
+| Household participation | Account-linked and loginless people; Household name/IDs/timestamps, MembershipId, AccountId, Role | Shared coordination and Household authority | Testing-only create/transfer/leave/close with membership/Owner checks; Account FK exists; broader authorization and concurrent ownership protection remain incomplete | OPEN |
 | Operational diagnostics | People identifiable through whatever runtime logs contain | Operate/debug/protect the service | Framework logging exists; content, redaction and production destination NOT VERIFIED | OPEN |
 | Account deletion / privacy requests | Departing Account holder and affected people, including people without Accounts | ADOPTED lifecycle distinction; rights handling requires its own scope | DeleteAccount and wider rights workflows NOT YET IMPLEMENTED | OPEN |
 

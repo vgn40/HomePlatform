@@ -1,66 +1,66 @@
 # HomePlatform Context Map
 
 Status: **Authoritative context description**  
-Last reviewed: **2026-09-13**
+Last reviewed: **2026-09-20**; AS-IS baseline `main@7162c35`
 
 ## Current implemented state
 
-The codebase currently has layered projects and one implemented Households
-slice for creating and persisting a Household with its initial Owner
-Membership. It does not yet have a complete Household lifecycle or fully
-enforced bounded contexts. Roleless Identity persistence and implemented Account
-Registration exist (`e2fca98`; historical registration baseline: 72/72 tests).
-Bearer sign-in is implemented in `4180096`; anonymous Refresh is implemented,
-validates expiry/security stamp, and issues new access/refresh tokens. Permanent
-real-bearer PostgreSQL tests prove renewed access and the persisted Household
-AccountId. Confirmation/recovery/revocation and release gates remain incomplete,
-as are Tasks & Routines, Shopping, Events, Today, Notifications,
-and Calendar Integration. Folder names alone are not bounded-context evidence.
+The codebase has four layer projects, one small Household aggregate and
+Infrastructure-owned roleless Identity. Registration, bearer sign-in and refresh
+are implemented. CreateHousehold, TransferOwnership, LeaveHousehold and
+CloseHousehold are implemented with membership/Owner checks and Testing-only
+HTTP endpoints. The nullable Account FK guards references and unresolved deletion.
 
-## Candidate target boundaries
+DeleteAccount is absent from this committed snapshot (uncommitted work exists).
+Current-Account validity, optimistic concurrency, invitations/linking and broader
+security/release gates remain incomplete. Tasks & Routines, Shopping, Events,
+Today, Notifications and Calendar Integration are not implemented.
+[NEXT-STEPS](../roadmap/NEXT-STEPS.md) records verification limits; this is source
+inspection, not current test or deployment proof. Folder names alone are not
+bounded-context evidence.
 
-The following map proposes language and ownership; it does not pre-approve one
-bounded context for every feature area. Account/Membership
-cardinality follows accepted
-[ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md).
+## Accepted concepts and candidate target boundaries
+
+[ADR 0007](../adr/0007-person-as-stable-human-identity.md) accepts Person and
+Relationship concepts. This map describes ownership/language, not a requirement
+for one bounded context, project, database or service per concept.
 
 ```text
-                         +-------------------+
-                         | Identity & Access |
-                         | Account / session |
-                         +---------+---------+
-                                   | trusted AccountId
-                                   v
-                         +---------+---------+
-                         |    Households     |
-                         | Membership / ACL  |
-                         +----+----+----+-----+
-                              |    |    |
-                              v    v    v
-                    Tasks & Routines  Shopping  Events
-                              \       |       /
-                               +------v------+
-                               | Today/Agenda|
-                               | read model  |
-                               +-------------+
+Identity & Access: Account / credentials (Infrastructure)
+                         |
+               optional link; design OPEN
+                         v
+People: Person -------- Relationship -------- Person   [TARGET]
+          |
+Households: HouseholdMembership --> Household          [TARGET evolution]
+          |
+          +--> Tasks / Shopping / Events --> Today     [candidate flows]
 
-Application orchestration -> email, push, and calendar adapters when triggered
+Person (child) --> CareCircle <-- CareCircleMembership <-- Person (caregiver)
+                         [FUTURE only]
 ```
+
+**AS-IS:** Account references HouseholdMember directly. **TARGET:** credentials,
+human identity, participation and family/social relationships have separate
+meanings. Co-residence does not imply family relationship; a Person may belong
+to multiple Households where rules permit. Context boundaries and contracts
+must be refined through real flows, not by pre-creating modules.
 
 ## Status by boundary
 
 | Boundary | Status | Owns | Does not own |
 |---|---|---|---|
-| Households | **CURRENT, partial** | Household creation, Membership identity/roles, loginless members, scoped Account-link uniqueness | credentials, tasks, lists, events |
+| Households | **CURRENT, partial** | creation, transfer/leave/close, Membership identity/roles, loginless members, scoped Account-link uniqueness | credentials, tasks, lists, events |
 | Identity & Access | **PARTIAL supporting capability** | Account credentials, authentication/session/recovery lifecycle | household role or resource access |
-| Households target | **PARTIAL** | stable Membership implemented; invitations, last-Owner lifecycle, verified linking, and Household authorization remain | passwords, unrelated feature state |
+| Households target | **TARGET evolution** | Person participation through HouseholdMembership; retain contextual authority | human identity, credentials, relationship source of truth |
 | Tasks & Routines | **PROPOSED** | task lifecycle, assignment, recurrence and occurrence identity | membership source of truth |
 | Shopping | **PROPOSED** | lists/items and their transitions | catalog, recipes, membership |
 | Events | **PROPOSED** | internal household event lifecycle and time rules | external provider tokens/cursors |
 | Today / Agenda | **PROPOSED read composition** | authorized query/DTO composition | write aggregate or cross-context transaction |
 | Notifications / Delivery | **DEFERRED supporting module** | preferences/delivery only after a real unattended reminder | feature business rules |
 | Calendar Integration | **DEFERRED supporting module** | provider mapping/cursors/conflicts after one provider is approved | internal event language |
-| People / Profile | **DEFERRED** | nothing until a cross-household profile lifecycle is proven | a pre-schema shortcut for Membership |
+| People / Relationships | **Accepted TARGET concepts; boundary OPEN** | stable Person identity and relationships independent of co-residence | credentials or implicit Household permissions |
+| CareCircle / CareCircleMembership | **FUTURE** | child-centered care participation across Households | identity of a Household or an immediate implementation commitment |
 
 ## Responsibilities
 
@@ -76,16 +76,29 @@ operation keeps its command, handler, validator, port, result, and errors in
 Accounts/Register, Accounts/SignIn, or Accounts/Refresh. No Identity framework
 types cross those ports. No household roles live in Identity.
 
+### People and Relationships — TARGET
+
+Person is the human, optionally linked to an Account. Children, parents,
+partners, grandparents and step-parents are Persons in relationships/context,
+not entity subtypes. Relationship directionality, symmetry, taxonomy, lifecycle,
+effective dates and permissions are open. Person management, verified linking,
+matching and deletion must be designed before affected persistence is added.
+No dedicated People project or graph database is implied.
+
 ### Households
 
 Language: Household, Membership, Owner, Member, Guest, Invitation, join, leave,
 remove, link Account, LeaveHousehold, TransferOwnership, CloseHousehold.
 
-Households owns stable `MembershipId`, optional verified `AccountId`, scoped
+**AS-IS:** Households owns stable `MembershipId`, optional `AccountId`, scoped
 duplicate protection, last-Owner consistency, and resource-authorization facts.
-The first three are represented in the current model; verified link lifecycle,
-last-Owner transitions, and resource authorization remain. Family relationships
-never grant authority implicitly.
+Identity/link integrity and sequential lifecycle checks are represented in the
+current model; verified linking, concurrent ownership safety and broader
+authorization remain. Family relationships
+never grant authority implicitly. **TARGET:** HouseholdMembership references
+the Person participating in that Household; credentials are reached through a
+separately designed Account–Person link. Multiple memberships do not duplicate
+the human identity or grant access between Households.
 
 ### Account and Household lifecycle coordination
 
@@ -93,8 +106,8 @@ never grant authority implicitly.
 Account identity data, the departing person's data/memberships, other people's
 data and shared Household/domain data. DeleteAccount coordinates all Household
 memberships through explicit lifecycle before deleting Identity. Households
-owns LeaveHousehold, explicit TransferOwnership and CloseHousehold rules; none
-of these workflows is implemented yet.
+owns implemented LeaveHousehold, explicit TransferOwnership and CloseHousehold
+rules. DeleteAccount coordination is not implemented in committed main.
 
 Membership never implies ownership. A continuing Household retains an
 Account-linked Owner; last Owner explicitly transfers to a concrete eligible
@@ -114,10 +127,14 @@ Feature rules decide continued purpose and survival; remove unnecessary person
 references and define missing-attribution UI. Do not invent a generic usage
 heuristic, replacement identity or anonymization claim from a null reference.
 
-Infrastructure must later enforce the guarding nullable AccountId FK to
+Infrastructure now enforces the guarding nullable AccountId FK to
 AspNetUsers.Id; this physical constraint does not move Identity types into
-Domain. Protected product requests need current-Account validity as well as
-Household membership authorization. Reuse concrete deletion operations for
+Domain. Current Household membership authorization remains required;
+immediate current-Account validity is deferred security hardening, with the
+access-token expiry window recorded in the [security roadmap](../roadmap/SECURITY-ROADMAP.md).
+The Person target requires a new lifecycle decision before replacing current
+Account-linked deletion rules; Account deletion does not yet define Person fate.
+Reuse concrete deletion operations for
 appropriate privacy requests without introducing a generic privacy context or
 GdprService/PrivacyService.
 
@@ -142,14 +159,16 @@ provider identifiers and sync state stay behind a later anti-corruption layer.
 
 ### Today / Agenda
 
-Today is a side-effect-free Application read composition over authorized task,
+The proposed Today is a side-effect-free Application read composition over authorized task,
 event, and shopping projections. It is not an aggregate or default table.
 
 ## Integration relationships
 
 | Upstream | Downstream | Relationship/contract |
 |---|---|---|
-| Identity & Access | Households | trusted AccountId and explicit account-link verification |
+| Identity & Access | People (TARGET) | optional verified Account–Person link; exact mechanism OPEN |
+| People | Households (TARGET) | Person identity for participation; explicit authorized contract, no automatic cross-Household access |
+| Identity & Access | Households (AS-IS) | trusted AccountId and current direct membership lookup |
 | Households | Tasks/Shopping/Events | stable Membership/access query contract; no Domain/EF entity leakage |
 | Tasks/Shopping/Events | Today | stable read DTO/projection; no cross-context write |
 | Feature modules | Notifications | explicit delivery intent only when a concrete reminder exists |
@@ -185,7 +204,11 @@ service extraction requires an additional deployment/scaling/ownership need.
 
 ## Later candidates
 
-Meals, home maintenance, expenses, care logistics, cross-household connections,
+CareCircle/CareCircleMembership remain future care concepts, not the next slice.
+Playdates and temporary trusted sharing remain exploration; no
+HouseholdRelationship entity, schema or roadmap item is accepted.
+
+Meals, home maintenance, expenses, care logistics,
 location/safety, and rewards/allowance remain discovery candidates. They must
 not become fields on Household or Task merely because competitors contain them.
 

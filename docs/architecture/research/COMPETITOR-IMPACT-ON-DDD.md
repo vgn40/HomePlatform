@@ -3,9 +3,24 @@
 Status: **Decision input, not architecture authority**  
 Research cutoff: **2026-08-29**
 
+**Decision update — 2026-09-20:** earlier recommendations to defer Person are
+historical research, superseded by accepted TARGET
+[ADR 0007](../adr/0007-person-as-stable-human-identity.md). Person/Relationship
+are not implemented; CareCircle is FUTURE. The research below is preserved,
+not a competing roadmap.
+
+Historical research boundary, clarified 2026-09-19: “Current”, “next” and
+“required soon” below refer to the 2026-08-29 snapshot. ADR 0006 was subsequently
+accepted and Membership identity/FK and transfer/leave/close are now implemented.
+The older proposed filtered index and blanket history-retention recommendation
+are not current policy: the schema uses unfiltered scoped uniqueness; leave
+removes membership and future attribution follows the adopted deletion design.
+[NEXT-STEPS](../roadmap/NEXT-STEPS.md) alone owns execution order. Feature breadth
+in this research is not a delivery commitment.
+
 Current conclusions are consolidated into the
 [domain model](../target/DOMAIN-MODEL.md),
-[context map](../target/CONTEXT-MAP.md), and proposed
+[context map](../target/CONTEXT-MAP.md), and accepted
 [ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md).
 The complete evidence is in the
 [competitor-audit archive](../../research/archive/competitor-audit-2026-08-29/README.md).

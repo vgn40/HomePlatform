@@ -1,57 +1,84 @@
 # HomePlatform Product Scope
 
-Status: **Authoritative product scope for the six-month beta**  
-Last reviewed: **2026-09-13**
+Status: **Product direction and candidate scope; execution owned by NEXT-STEPS**
+Last reviewed: **2026-09-20**; AS-IS baseline `main@7162c35` plus separately identified working-tree work
 
 ## Product thesis
 
-HomePlatform should reduce everyday household coordination friction through a
-trusted shared space for responsibility, shopping, events, and today's agenda.
-The differentiation is not the largest feature list. It is reliable Household
-identity and authority, clear ownership of work, low-friction collaboration,
-and honest lifecycle behavior.
+HomePlatform helps people coordinate shared life across households, relationships
+and changing family structures.
+
+The long-term model should serve couples living together, households without
+children, families with children, blended families, separated parents,
+grandparents and other caregivers. A change in family structure should not
+require a different product or a duplicate identity for the same child.
+These are goals for incremental evolution, not features available today.
 
 ## Current implemented state
 
-The repository has a complete Testing-only CreateHousehold path, roleless
-Identity persistence, and implemented Account Registration (committed in
-`e2fca98`; verified solution baseline: 72/72 tests). There is no complete
-user-facing authenticated Household experience or frontend yet. Registration
-alone does not establish sign-in, verified identity, or Household authorization.
+Registration, bearer sign-in, Refresh and the nullable Account FK are
+implemented. CreateHousehold, TransferOwnership, LeaveHousehold and
+CloseHousehold exist with Testing-only HTTP routes and concrete membership/Owner
+checks. Current-Account validity and optimistic concurrency remain incomplete.
+DeleteAccount is not implemented in committed main; separate uncommitted work
+exists. There is no frontend or complete user-facing Household experience.
+This is source status, not fresh test, hosted CI or deployment evidence.
 
-## Six-month beta scope
+## Product/domain direction — TARGET
 
-| Capability | Target | Product constraint |
+| Concept | Meaning | Status |
 |---|---|---|
-| Account lifecycle | register, verify, sign in, recover, revoke, DeleteAccount | explicit multi-Household resolution; immediate protected-request denial after deletion commit |
-| Household | create, rename, list, CloseHousehold | protected collaboration boundary; closure is explicit |
-| Membership | Owner/Member/Guest, invite, join, leave/remove/transfer | role is authority, not family relationship |
-| Loginless participant | model support implemented under accepted ADR 0006 | identity flexibility now; specialized child UI later |
-| Tasks | create, assign, complete/reopen, history | assignment by Membership identity under ADR 0006 |
-| Routines | deliberately limited recurrence | timezone/DST/idempotency before breadth |
-| Shopping | shared list and item transitions | one active list initially, not permanent contract |
-| Today | authorized daily read composition | no write aggregate or GET side effects |
-| Events | basic internal events if capacity remains | no external provider objects/sync |
-| Trust/operations | export/deletion, backup/restore, observability | required before public beta claim |
+| Account | authentication and credentials, owned by Infrastructure Identity | AS-IS |
+| Person | stable human identity; may optionally have an Account | Accepted TARGET; not implemented |
+| HouseholdMembership | a Person's participation and authority role in one Household | TARGET evolution of current Account-linked HouseholdMember |
+| Relationship | relationship between Persons independent of Household membership | Accepted TARGET; implement only for a concrete flow |
+| CareCircle / CareCircleMembership | people caring for a child across Household boundaries | FUTURE; not an immediate implementation task |
 
-## Structural product decisions
+An adult user has a Person and Account; a young child has a Person without an
+Account; a grandparent may have either arrangement. Child, parent, partner,
+grandparent and step-parent describe relationships/context, not Person subtypes.
+Owner/Member/Guest are Household authority roles and do not follow from family
+relationships.
 
-- Account authentication and Household participation are different lifecycles;
-  their separation is accepted in
-  [ADR 0006](../architecture/adr/0006-separate-account-and-household-membership-identity.md).
-- One Account can have memberships in several Households; DeleteAccount must
-  resolve all of them.
-- Owner/Member/Guest express authorization. Parent/Child/Partner/Grandparent
-  describe relationships and do not automatically grant access.
-- Today is a read surface over several modules, not a new write model.
-- Recurrence, reminders, and collaboration quality matter more than a long
-  checklist of shallow features.
+Household is a participation context, not the identity of an entire family.
+For example, Emma remains one Person with separate memberships in her mother's
+and father's Households after separation, where product rules permit this.
+There is no automatic sharing or permission grant between those Households.
+
+[ADR 0007](../architecture/adr/0007-person-as-stable-human-identity.md) records
+the decision. The exact Account–Person link, Person data/management rules and
+migration remain open. [ADR 0006](../architecture/adr/0006-separate-account-and-household-membership-identity.md)
+remains the historical Account/Membership separation; its deferral of Person
+has been superseded.
+
+## Incremental product evolution
+
+The next work designs the smallest path from Account-linked memberships to
+Person, implements a minimal foundation, evolves membership, and proves value
+with a concrete flow independent of login. A candidate is representing and
+showing a loginless participant as one Person; detailed fields and permissions
+must be chosen before implementation. This is not approval for a child/custody
+subsystem or automatic identity matching.
+
+Relationships follow a real product flow; care capabilities follow later needs.
+Tasks, Routines, Shopping, Today and Events remain possible product slices,
+not a delivery commitment. Today remains read composition, not a write aggregate.
+Only [NEXT-STEPS](../architecture/roadmap/NEXT-STEPS.md) sets execution order.
+
+HomePlatform remains a .NET/backend portfolio. Its architectural story is the
+separation of credentials, people, participation and relationships, supported
+by working vertical slices. Product/domain development proceeds while known
+technical risks remain explicit in the
+[debt register](../architecture/roadmap/TECHNICAL-DEBT-REGISTER.md).
+Pull hardening forward for actual risk, a feature dependency or release exposure;
+real-user privacy/security and operational gates still apply.
 
 ## Adopted deletion and ownership lifecycle
 
 [DELETION-DESIGN.md](../privacy/DELETION-DESIGN.md) is canonical. DeleteAccount,
 LeaveHousehold, TransferOwnership and CloseHousehold are distinct, adopted
-operations and are NOT YET IMPLEMENTED. A continuing Household needs an Owner
+operations. The three Household operations are implemented with Testing-only
+routes; DeleteAccount remains absent from committed main. A continuing Household needs an Owner
 linked to a real Account. Membership and family relationships never cause
 automatic Owner promotion. The last Owner must explicitly transfer to a concrete
 eligible Account-linked person or explicitly close the Household.
@@ -81,9 +108,24 @@ Destination acceptance, concrete future feature lifecycles/attribution/history,
 reauthentication UX, child-account policy, retention and backup periods remain
 OPEN. The canonical design lists all open decisions and required release gates.
 
-## Deferred product scope
+## Future care and cross-Household exploration
 
-Defer until interviews/pilot evidence and the core beta gates justify it:
+**FUTURE:** CareCircle and CareCircleMembership represent people caring for a
+child across Household boundaries: parents, step-parents, grandparents,
+babysitters and other trusted caregivers. Potential scoped permissions include
+schedule access, pickup responsibility, selected child information and temporary
+caregiver access. This is separate from co-residence and is not scheduled with
+the Person foundation. Medical, custody and detailed child-privacy capabilities
+are not designed here.
+
+**FUTURE EXPLORATION:** playdates and temporary coordination or trusted sharing
+between families may need cross-context interaction. `HouseholdRelationship`
+is not accepted, modelled or scheduled. Person relationships or temporary shared
+contexts may be a better fit; the choice remains open.
+
+## Other deferred product scope
+
+Revisit when a concrete product flow and evidence justify it:
 
 - caregiver/child workflows beyond the minimum identity model;
 - cross-Household sharing or discovery;
@@ -103,12 +145,11 @@ They must not be added as fields on Household or Task.
 - competing on feature count;
 - turning family relationship labels into permissions;
 - forcing credentials onto every represented Household participant;
-- inventing a global Person graph before a real cross-Household lifecycle;
+- automatic Person matching, an arbitrary social graph or a generic permission engine;
 - using realtime, AI, or hardware to hide weak core workflows;
-- weakening authorization, concurrency, migration, recovery, or data-lifecycle
-  gates to ship more surface area.
+- treating deliberate hardening deferral as proof of production readiness.
 
-## Beta success evidence
+## Future beta acceptance criteria — not current delivery claims
 
 - a new Account can securely create and activate a Household;
 - invited participants reach a first shared action with low friction;
@@ -120,4 +161,4 @@ They must not be added as fields on Household or Task.
 - the product is recoverable, observable, and explicit about limitations.
 
 The engineering order and exit gates live in the
-[masterplan](../architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md).
+[NEXT-STEPS](../architecture/roadmap/NEXT-STEPS.md).

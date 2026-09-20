@@ -36,9 +36,19 @@ Account slices use `Accounts/<UseCase>/`: `Register/`, `SignIn/`, and `Refresh/`
 Each slice keeps its operation-specific ports, results, and errors locally.
 Identity adapters remain in Infrastructure/Identity.
 
+TransferOwnership, LeaveHousehold and CloseHousehold also have explicit scoped
+handlers, commands and typed outcomes. They obtain the trusted AccountId, load
+the tracked Household through the port, invoke Domain behavior and commit via
+UpdateAsync or DeleteAsync. Their HTTP endpoints are Testing-only. Current
+membership/Owner checks exist; current-Account validity and optimistic
+concurrency remain incomplete. Separate uncommitted DeleteAccount work is not
+part of this committed snapshot. Test descriptions above refer to existing
+coverage and historical evidence, not a new runtime run on 2026-09-19.
+
 Application's only project reference is Domain. Its DI registration helper
 uses Microsoft.Extensions.DependencyInjection.Abstractions and registers only
-three scoped validators and four scoped handlers. There is no HTTP, EF Core, or Identity dependency.
+three scoped Account validators and seven scoped handlers on committed
+`main@7162c35`. There is no HTTP, EF Core, or Identity dependency.
 Trusted actor identity enters through the Application-owned current-account
 port, never through a client-owned command
 field. See the

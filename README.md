@@ -1,23 +1,48 @@
 # HomePlatform
 
-HomePlatform is an early-stage household coordination platform and a pragmatic
-.NET domain-driven design portfolio project. The product direction is shared
-household membership, tasks and routines, shopping, events, and a read-only
-Today view.
+HomePlatform helps people coordinate shared life across households, relationships
+and changing family structures. It is an early-stage .NET/backend portfolio
+project, evolving through small product flows and explicit domain decisions.
 
-> **Current status (2026-09-13):** PostgreSQL-backed CreateHousehold exists behind
-> a Testing-only authenticated route. Roleless ASP.NET Core Identity persistence
-> and Account Registration are implemented; registration is committed in `e2fca98` and maps an
-> anonymous endpoint in every environment. Bearer sign-in is implemented in
-> `4180096`; anonymous `POST /api/accounts/refresh` is implemented and covered
-> by permanent real-bearer PostgreSQL integration tests. Refresh validates expiry
-> and the Identity security stamp, then issues new access and refresh tokens.
-> The remaining account lifecycle,
-> Household resource authorization, deployment, and frontend remain incomplete.
-> The [DDD/Clean Architecture audit](docs/architecture/DDD-ARCHITECTURE-AUDIT.md)
-> preserves historical findings and records the registration follow-up; [next steps](docs/architecture/roadmap/NEXT-STEPS.md)
-> owns the executable order. The historical registration baseline was 72/72 tests.
-> See next steps for current verification and remaining gates.
+The direction covers couples and households without children, families with
+children, blended families, separated parents, grandparents and other caregivers.
+People should retain their identity as family structures change, including a
+child participating in more than one Household. These are product goals, not
+implemented capabilities. Start with the [product scope](docs/product/PRODUCT-SCOPE.md).
+
+**TARGET:** Account supplies credentials; Person represents the human being;
+HouseholdMembership represents participation in one Household. Relationships
+between Persons are independent of co-residence. Person and Relationship are
+accepted targets; CareCircle is a future care context. None exists in code yet.
+
+## AS-IS implementation — source reviewed 2026-09-20
+
+Source baseline: committed `main@7162c35`.
+
+- Account Registration, bearer sign-in and Refresh are implemented and mapped
+  in all environments. Refresh validates expiry and the Identity security stamp.
+- CreateHousehold, TransferOwnership, LeaveHousehold and CloseHousehold have
+  Domain/Application/persistence/HTTP implementations. **All Household routes
+  are Testing-only**, including with real bearer authentication.
+- Account and Membership identities are separate. The nullable AccountId FK to
+  Identity enforces reference integrity without automatic Account-delete cascade.
+- Transfer/leave/close check current Household membership/Owner authority.
+  Nonmembers receive 404; known Member/Guest actors receive 403 for Owner-only
+  operations. Protected-request Account validity and optimistic concurrency
+  remain unfinished.
+- The affected Domain/Application/PostgreSQL integration slice passed 117 tests
+  locally on 2026-09-20; see [verification](docs/architecture/roadmap/NEXT-STEPS.md#verified-locally).
+  Hosted CI, deployment and operational controls were not verified.
+
+DeleteAccount is **not implemented in this committed snapshot**; separate
+uncommitted implementation/test work exists in the reviewed working tree.
+Household authorization/resource concealment is committed in `7162c35`.
+DeleteAccount remains separate, uncommitted and unchanged.
+Frontend, invitations/linking, Tasks, Shopping and Events are not implemented.
+
+Read [next steps](docs/architecture/roadmap/NEXT-STEPS.md) for the sole execution
+order and verification boundaries, and [target architecture](docs/architecture/target/TARGET-ARCHITECTURE.md)
+for the explicit current/future split.
 
 ## Technology
 
@@ -44,12 +69,14 @@ ports. Infrastructure owns persistence and technical adapters. API is the HTTP
 boundary and composition root. Business modules remain inside this deployment
 until evidence justifies a more complex topology.
 
-The accepted identity model separates a credential-bearing `Account` from a
-stable household `Membership`; it is recorded in
-[ADR 0006](docs/architecture/adr/0006-separate-account-and-household-membership-identity.md)
-and is implemented for the first Household slice. Verified linking/unlinking,
-last-Owner concurrency, Account validation, and Membership resource
-authorization remain follow-up work.
+The **AS-IS** identity model separates Account and Membership under
+[ADR 0006](docs/architecture/adr/0006-separate-account-and-household-membership-identity.md).
+[ADR 0007](docs/architecture/adr/0007-person-as-stable-human-identity.md)
+adds Person as the accepted **TARGET**, preserving Membership as participation
+and ASP.NET Core Identity in Infrastructure. The exact Account–Person link
+and migration are still to be designed. [NEXT-STEPS](docs/architecture/roadmap/NEXT-STEPS.md)
+prioritizes that incremental foundation; security/concurrency and release work
+remain visible in the [debt register](docs/architecture/roadmap/TECHNICAL-DEBT-REGISTER.md).
 
 ## Repository layout
 
@@ -67,7 +94,7 @@ Start with the [documentation index](docs/README.md). The primary documents are:
 - [target architecture](docs/architecture/target/TARGET-ARCHITECTURE.md)
 - [context map](docs/architecture/target/CONTEXT-MAP.md)
 - [domain model](docs/architecture/target/DOMAIN-MODEL.md)
-- [six-month roadmap](docs/architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
+- [historical six-month plan](docs/architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
 - [current next steps](docs/architecture/roadmap/NEXT-STEPS.md)
 - [security roadmap](docs/architecture/roadmap/SECURITY-ROADMAP.md)
 - [technical-debt register](docs/architecture/roadmap/TECHNICAL-DEBT-REGISTER.md)
@@ -122,9 +149,12 @@ working tree before starting the next roadmap step.
 
 ## Migrations
 
-`InitialHousehold` and `LimitHouseholdNameLength` define the Household schema;
-`AddIdentityPersistence` adds ASP.NET Core Identity persistence. The repository
-pins dotnet-ef 10.0.11; Testcontainers applies migrations from zero, and the
-2026-09-04 model check reported no pending changes. See the
+Four migrations are committed: `20260830093643_InitialHousehold`,
+`20260830185551_LimitHouseholdNameLength`,
+`20260904100319_AddIdentityPersistence`, and
+`20260913183105_AddHouseholdMemberAccountReference`. The last adds the AccountId
+lookup index and guarding FK. The repository pins dotnet-ef 10.0.11.
+Testcontainers tests and CI define migration checks; no fresh model-drift or
+migration execution is claimed by this documentation review. See the
 [current next steps](docs/architecture/roadmap/NEXT-STEPS.md) before extending
 the schema.

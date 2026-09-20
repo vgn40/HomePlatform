@@ -3,6 +3,32 @@
 Status: Accepted
 Accepted: 2026-08-30
 
+## Implementation addendum — 2026-09-19
+
+Source review at committed `main@1ca1dd0`; no fresh runtime test run. The accepted
+identity decision remains unchanged. Earlier implementation-status paragraphs
+and the 2026-09-13 addendum below are historical snapshots, not current gaps.
+
+- The nullable AccountId FK and lookup index now exist, with guarding
+  ClientNoAction / PostgreSQL NO ACTION semantics.
+- TransferOwnership, LeaveHousehold and CloseHousehold are implemented through
+  Domain, Application, persistence and Testing-only HTTP endpoints. Actor
+  membership/Owner authority is checked against the loaded Household.
+- Standalone leave identifies the caller via trusted AccountId and the loaded
+  Household membership; it accepts no client-selected actor MembershipId.
+  It deletes that Member/Guest membership and refuses every Owner. This
+  clarifies the older Application wording that leave must take MembershipId;
+  it does not change Membership identity or permit actor impersonation.
+- Transfer preserves MembershipIds; close physically deletes Household and
+  memberships while retaining Accounts. Acceptance by the destination Owner
+  and future attribution policies remain open.
+- Current-Account validation, optimistic concurrency, verified link/unlink and
+  broader authorization remain incomplete. DeleteAccount is absent from the
+  committed snapshot; uncommitted implementation/test work is excluded.
+
+Current status and execution order: [NEXT-STEPS](../roadmap/NEXT-STEPS.md).
+Canonical lifecycle decisions: [DELETION-DESIGN](../../privacy/DELETION-DESIGN.md).
+
 ## Context
 
 The proposal baseline used a required `UserId` as `HouseholdMember` identity.

@@ -3,6 +3,19 @@
 Status: **Decision-relevant research, not architecture authority**  
 Research cutoff: **2026-08-29**
 
+**Decision update — 2026-09-20:** earlier recommendations to defer Person are
+historical research, superseded by accepted TARGET
+[ADR 0007](../adr/0007-person-as-stable-human-identity.md). Person/Relationship
+are not implemented; CareCircle is FUTURE. The research below is preserved,
+not a competing roadmap.
+
+Historical research boundary, clarified 2026-09-19: all “Current support” and
+phase recommendations below describe the 2026-08-29 snapshot. Membership
+identity, nullable Account FK and sequential transfer/leave/close are now
+implemented. Future feature examples do not adopt retention policies or schedule
+features. [NEXT-STEPS](../roadmap/NEXT-STEPS.md) alone owns execution order;
+[DELETION-DESIGN](../../privacy/DELETION-DESIGN.md) owns lifecycle decisions.
+
 The current summary lives in the
 [domain model](../target/DOMAIN-MODEL.md). Raw supporting research is in the
 [competitor-audit archive](../../research/archive/competitor-audit-2026-08-29/README.md).

@@ -1,10 +1,29 @@
 # HomePlatform Technical-Debt Register
 
 Status: **Authoritative debt register**  
-Last reviewed: **2026-09-14**
+Last reviewed: **2026-09-20**, committed `main@7162c35`
+
+The affected Household slice passed 117 tests locally on 2026-09-20;
+[NEXT-STEPS](NEXT-STEPS.md#verified-locally) records its scope. Historical closure
+sections retain their original dates and counts. Uncommitted DeleteAccount
+work is excluded from the main baseline. [NEXT-STEPS](NEXT-STEPS.md) alone
+owns execution order.
 
 Debt is a conscious correctness or maintainability obligation with a trigger
 and exit gate. Unbuilt product scope is not automatically technical debt.
+
+## Deliberate deferral — 2026-09-20
+
+Product/domain development takes priority; accepted Person/Relationship targets
+are not debt. The former hardening-first roadmap is replaced by incremental
+Person work in NEXT-STEPS. Household authorization is committed in `7162c35`.
+Existing uncommitted DeleteAccount source/tests are preserved and unchanged;
+DeleteAccount completion is not claimed.
+
+P1 below is an affected feature/release obligation, not an instruction to finish
+all hardening before another product slice. Trigger work for concrete risk,
+production relevance or feature dependency. New slices still require correct
+invariants and resource authorization.
 
 ## Priority definitions
 
@@ -17,14 +36,17 @@ and exit gate. Unbuilt product scope is not automatically technical debt.
 
 | ID | Priority | Current evidence | Required action | Exit evidence |
 |---|---|---|---|---|
-| TD-005 | P1 | MembershipId, nullable AccountId, loginless membership, aggregate/database scoped uniqueness, and PostgreSQL round-trip are proven; link/unlink and lifecycle behavior do not exist | implement only explicit authorized link/unlink/lifecycle use cases when their roadmap gate is reached | Domain + PostgreSQL identity/cardinality/concurrency tests pass |
-| TD-010 | P1 | Testing-only CreateHousehold has both test-auth and production-bearer coverage and Production is 404; Identity persistence, registration, sign-in, and Refresh exist, including renewal, expiry/security-stamp rejection, and real-token AccountId persistence tests; Account-reference integrity is verified locally; confirmation/recovery/revocation, protected-request current-Account validation, Membership authorization, and IDOR coverage remain incomplete | follow NEXT-STEPS for TransferOwnership test-first, required ownership lifecycle/current-Account checks and DeleteAccount; complete wider lifecycle, authorization and IDOR release gates | security roadmap phase gates pass |
-| TD-011 | P1 | last-Owner, Account linking, invitation consumption, and future same-resource edits lack race proof | add database constraints/version/conditional operations and barrier tests | real PostgreSQL proves one winner/valid invariant |
-| TD-013 | P1 | no production container/deploy/observability/backup/restore/export/deletion proof | follow the brought-forward deletion sequence and complete operational/privacy/security gates before real-user release | release gate is evidenced, not asserted |
-| TD-014 | P1 | recurrence/time behavior is undefined | decide IANA zone, DST, missed/edit-series, idempotent occurrence rules | Phase 4 deterministic + PostgreSQL tests pass |
-| TD-020 | P1 | bearer access validation and HttpCurrentAccount do not verify current Account existence; Refresh security-stamp validation is a separate check | add current-Account existence/validity for protected product requests and current membership for Household authorization before DeleteAccount | an unexpired token from a deleted Account cannot authorize new product requests; removed membership loses Household access |
-| TD-021 | P1 | DeleteAccount is absent; adopted multi-Household deletion and immediate access termination are not enforced | implement after TD-019/020/022; resolve ownership, explicitly delete all Account-linked memberships across all Households without loginless conversion, refuse unresolved last Owner, atomically apply approved lifecycle and delete Identity Account | multi-Household membership deletion/no-conversion, shared/loginless-person, refusal, rollback/race, feature-specific reference cleanup and post-commit access/refresh denial tests |
-| TD-022 | P1 | LeaveHousehold, TransferOwnership and CloseHousehold are absent; Owner-null constructor guard is not lifecycle/concurrency proof | next CODE feature: TransferOwnership test-first, then explicit authorized leave/close primitives; decide standalone leave/close and feature-specific data behavior; DeleteAccount membership deletion is already ADOPTED; never auto-promote; preserve Account-linked Owner for continuing Household | Domain and PostgreSQL prove explicit transfer/closure, no loginless Owner, no ownerless continuation and concurrency/rollback safety |
+| TD-005 | P1 | MembershipId, nullable AccountId, loginless membership, aggregate/database scoped uniqueness, and PostgreSQL round-trip are proven; verified link/unlink is absent; transfer/leave/close primitives exist | implement only explicit authorized link/unlink/lifecycle use cases when their roadmap gate is reached | Domain + PostgreSQL identity/cardinality/concurrency tests pass |
+| TD-010 | P1 | Testing-only CreateHousehold has both test-auth and production-bearer coverage and Production is 404; Identity persistence, registration, sign-in, and Refresh exist, including renewal, expiry/security-stamp rejection, and real-token AccountId persistence tests; Account-reference integrity is verified locally; confirmation/recovery/revocation, protected-request current-Account validation, broader Membership authorization policy and real-bearer IDOR coverage remain incomplete; transfer/leave/close already enforce membership/Owner checks | complete applicable lifecycle, authorization and IDOR release gates when exposure warrants; immediate current-Account validation follows TD-020, not a universal Person prerequisite | security roadmap phase gates pass |
+| TD-011 | Deferred production hardening | last-Owner, Account linking, invitation consumption, and future same-resource edits lack race proof | when simultaneous mutations or production guarantees require them, select database constraints/version/conditional operations and deterministic race tests | real PostgreSQL proves one winner/valid invariant |
+| TD-013 | P1 | no production container/deploy/observability/backup/restore/export/deletion proof | review existing DeleteAccount work and complete applicable operational/privacy/security gates before real-user release | release gate is evidenced, not asserted |
+| TD-014 | Deferred until recurrence is selected | recurrence/time behavior is undefined | decide IANA zone, DST, missed/edit-series and idempotency before persisting recurrence | deterministic and PostgreSQL tests for the chosen slice pass |
+| TD-020 | Deferred security hardening | bearer access validation/HttpCurrentAccount do not reload Account existence; an issued short-lived access token may remain usable until expiry after deletion; Refresh validates separately | introduce immediate validation/revocation when a concrete product/release risk requires immediate cutoff; decide lifetime/acceptable window before release; retain current membership authorization | prove unexpired-token rejection if immediate cutoff is selected; separately prove Refresh rejection for deleted/invalid Accounts and removed membership denial |
+| TD-021 | Deferred completion; affected release gate | DeleteAccount is absent from committed main; uncommitted endpoint/handler/adapter and transaction/rollback/tests exist, not verified complete | review existing work rather than duplicate it; resolve all memberships/ownership, atomicity, rollback, reauthentication, Person-transition compatibility and revocation policy before exposure | multi-Household deletion without loginless conversion, ownership refusal/resolution, rollback/race and shared/loginless-person handling; reject deleted-Account Refresh; document access expiry window or prove selected immediate cutoff |
+| TD-022 | Deferred production hardening | LeaveHousehold, TransferOwnership and CloseHousehold exist through Testing-only HTTP/Application/Domain/persistence; Household concurrency token and race-safe ownership proof are absent | trigger concurrent ownership protection on simultaneous mutation/production needs; complete required authorization evidence for affected slices; record that leave rejects every Owner and close physically deletes current Household/memberships; decide future feature data behavior | Domain and PostgreSQL prove explicit transfer/closure, no loginless Owner, no ownerless continuation and concurrency/rollback safety |
+| TD-023 | Deferred; concrete read-heavy feature | current repository loads tracked aggregates with Include; no paginated projection or measured query-plan evidence | introduce authorized DTO projections/AsNoTracking, bounded stable pagination and appropriate indexes with the selected read flow; inspect generated SQL, round trips, row counts and PostgreSQL plans against representative sizes | useful bounded reads without data leakage; reproducible measurements with data size/method; local synthetic data is not production evidence |
+| TD-024 | Deferred hardening / release relevance | ProblemDetails/exception middleware and framework logs exist; error code/trace consistency and deeper observability remain incomplete | strengthen expected failure mapping/OpenAPI, safe 500s, correlation, diagnostics and redaction with real slices; decide sink/retention at release | useful diagnostics without secrets/personal payloads and consistent tested HTTP contracts |
+| TD-025 | Deferred consolidation | scoped handlers/adapters/repository/DbContext, tests and architecture notes exist; no consolidated lifetime/test/trade-off review claimed | review disposal/captive dependencies when lifetimes change; explain actual Domain/Application/real-bearer/PostgreSQL coverage and HTTP-to-SQL transaction/validation boundaries as features evolve | focused risk evidence, honest test provenance and explainable source decisions; not an exhaustive artificial pre-feature matrix |
 
 TD-019–022 record concrete integrity/security obligations under the
 [adopted deletion design](../../privacy/DELETION-DESIGN.md), not a claim that
@@ -33,8 +55,10 @@ close them. Their implementation order is [NEXT-STEPS.md](NEXT-STEPS.md).
 Priority P1 requires resolution before the affected lifecycle/public contract;
 no current build failure is claimed. TD-019 is closed below; TD-020–022 remain
 open. The original decisions used `main@07eeb12` source inspection. Current
-Account-reference evidence is the 2026-09-14 local test review at `main@bc03a00`
-plus the uncommitted implementation/tests.
+Account-reference local test evidence is historical: the 2026-09-14 review at
+`main@bc03a00` plus then-uncommitted implementation/tests. Current source
+inspection confirms the FK and lifecycle commits through `1ca1dd0`. TD-022 stays
+open for concurrency and complete authorization proof, not missing primitives.
 
 ### Findings from the 2026-09-06 audit
 
@@ -105,7 +129,7 @@ Do not introduce these as “cleanup” without their target-architecture trigge
 - Domain Events, outbox, broker, event sourcing, or scheduler platform;
 - Redis, SignalR, microservices, per-module database, Kubernetes, or
   multi-region;
-- global Person/Profile, general ACL engine, external calendar sync, AI,
+- automatic cross-household Person matching, general ACL engine, external calendar sync, AI,
   location, meals, expenses, maintenance, rewards, or full RRULE.
 
 ## Closed with 2026-09-02 evidence

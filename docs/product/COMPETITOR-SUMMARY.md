@@ -3,6 +3,15 @@
 Status: **Decision-relevant research summary, not architecture authority**  
 Research cutoff: **2026-08-29**
 
+## Current planning boundary — 2026-09-19
+
+This is historical research input. “Required early” below is a research
+recommendation, not a current implementation order or feature commitment.
+[NEXT-STEPS](../architecture/roadmap/NEXT-STEPS.md) now prioritizes the Person
+foundation and product/domain flows. Earlier deferral of Person in this research
+is superseded by [ADR 0007](../architecture/adr/0007-person-as-stable-human-identity.md);
+research recommendations are preserved below as historical input.
+
 ## Conclusion
 
 The market already contains broad family organizers, mature shared calendars,

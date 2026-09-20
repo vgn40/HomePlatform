@@ -1,8 +1,8 @@
 # HomePlatform Target Architecture
 
 Status: **Authoritative target**  
-Last reviewed: **2026-09-14**
-Decision boundary: accepted ADRs, including ADR 0006, are binding
+Last reviewed: **2026-09-20**
+Decision boundary: accepted ADRs, including ADR 0007, are binding; acceptance is not implementation
 
 ## Purpose and authority
 
@@ -10,61 +10,99 @@ This document is the single description of the intended technical
 architecture. It does not approve proposed ADRs and it does not claim planned
 components exist. The [context map](CONTEXT-MAP.md) owns business-language
 boundaries, the [domain model](DOMAIN-MODEL.md) owns DDD terminology, and the
-[roadmap](../roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md) owns sequencing.
+[NEXT-STEPS](../roadmap/NEXT-STEPS.md) alone owns sequencing. HomePlatform
+helps people coordinate shared life across households, relationships and changing
+family structures. Product/domain slices lead development; deeper hardening is
+pulled forward for concrete risk, feature dependencies or real-user release.
+
+## Accepted domain direction — TARGET
+
+[ADR 0007](../adr/0007-person-as-stable-human-identity.md) adds stable Person
+identity separate from Account credentials and HouseholdMembership participation.
+Relationship connects Persons independently of co-residence. A Person may have
+no Account and participate in multiple Households where product rules permit.
+Children and other family roles are contextual, not Person subtypes.
+CareCircle/CareCircleMembership remain **FUTURE**, with no detailed care schema.
+
+These concepts are absent from source. Design the smallest Account–Person link,
+Person foundation and membership migration before implementing them; keep the
+four-layer modular monolith and Identity in Infrastructure. The
+[domain model](DOMAIN-MODEL.md#accepted-core-model--target) explains the concepts.
 
 ## Current architecture
 
-Account-reference review on 2026-09-14 at `main@bc03a00` plus the user-owned
-uncommitted implementation/tests, with bearer sign-in committed in `4180096`
-and Refresh in `635d181`:
+Source baseline: committed `main@7162c35`, 2026-09-20. Household nonmember-404
+authorization is committed and the affected 117-test slice passed locally.
+Separate DeleteAccount endpoint/handler/Identity adapter/tests remain unchanged
+and uncommitted. Their transaction/rollback correctness and completion are not
+established by this Household test run.
 
-- four production projects follow the dependency graph below;
-- Domain contains Household and its HouseholdMember entities, HouseholdRole,
-  and a small Result helper. It has no User, Account aggregate, explicit value
-  objects, Domain Services, or Domain Events;
-- Application contains CreateHousehold, RegisterAccount, SignInAccount,
-  RefreshAccount, their input/results, and focused ports. Accounts uses
-  `Accounts/<UseCase>/` with Register, SignIn, and Refresh use cases and contracts
-  local to each operation;
-- Infrastructure owns the focused Household repository, Npgsql DbContext,
-  field-backed mappings, roleless ASP.NET Core Identity persistence, and the
-  UserManager-backed registration and SignInManager-backed sign-in/refresh adapters;
-- API maps health/readiness, Development/Testing OpenAPI, Testing-only
-  authenticated `POST /api/households`, and anonymous
-  `POST /api/accounts/register`, `POST /api/accounts/sign-in`, and
-  `POST /api/accounts/refresh` in every environment, including Production;
-- four migrations exist: InitialHousehold, LimitHouseholdNameLength,
-  AddIdentityPersistence, and AddHouseholdMemberAccountReference. The local
-  dotnet-ef pin is 10.0.11;
-- registration, bearer sign-in, and Refresh are implemented. Refresh validates
-  expiry/security stamp and issues new access/refresh tokens through the framework
-  bearer handler; the endpoint returns Results.Empty after that response.
-  Permanent real-bearer PostgreSQL tests prove renewal, safe failures, and the
-  registered AccountId on a protected Household write. The historical Refresh
-  baseline is 105/105; the registration baseline remains 72/72;
-- Account-reference integrity is IMPLEMENTED / VERIFIED locally: optional FK,
-  guarding deletion, real Identity-seeded fixtures and valid/dangling migration
-  upgrade tests. Build passed with zero warnings/errors; full solution:
-  **119/119** (Domain 25, Application 16, Integration 78; **0 skipped**).
-  See [current verification](../roadmap/NEXT-STEPS.md#account-reference-integrity-verification--2026-09-14).
-  Ownership lifecycle, protected-request current-Account validation,
-  confirmation/recovery/revocation, rate limiting, Household resource
-  authorization, deployment, and frontend remain incomplete.
+- Four production projects follow the dependency graph below.
+- Domain owns Household/HouseholdMember, roles, creation, explicit ownership
+  transfer, non-Owner leave, Owner-authorized close and typed lifecycle results.
+  It has no Identity/EF dependency, Account aggregate, Domain Service or events.
+- Application owns RegisterAccount, SignInAccount, RefreshAccount,
+  CreateHousehold, TransferOwnership, LeaveHousehold and CloseHousehold handlers,
+  focused ports and results. API derives the actor through ICurrentAccount.
+- Infrastructure owns roleless Identity, its registration/sign-in/refresh
+  adapters, HomePlatformDbContext, mappings and HouseholdRepository. GetByIdAsync
+  tracks the aggregate with Include(Members); update saves tracked changes and
+  delete removes the aggregate before SaveChangesAsync. Each write method
+  commits independently; no cross-use-case transaction coordinator is present.
+- API configures AddProblemDetails/UseExceptionHandler, then authentication and
+  authorization. Health/readiness are mapped; OpenAPI is Development/Testing-only.
 
-The [DDD/Clean Architecture audit](../DDD-ARCHITECTURE-AUDIT.md) records the
-historical verification and findings, with a registration completion follow-up. The earlier 57-test Phase 1
-result is dated evidence, not a claim about the current registration changes.
+| HTTP contract | Availability | Implemented behavior |
+|---|---|---|
+| POST /api/accounts/register | Anonymous, all environments | Registration via Identity; 201 response or validation ProblemDetails |
+| POST /api/accounts/sign-in | Anonymous, all environments | Framework bearer tokens and Identity lockout |
+| POST /api/accounts/refresh | Anonymous, all environments | Expiry/security-stamp validation and new access/refresh tokens |
+| POST /api/households | Authenticated, Testing-only | Create with trusted initial Owner; 201/400/401 |
+| PUT /api/households/{householdId}/ownership | Authenticated, Testing-only | Current Owner transfers to Account-linked target Membership; 204/400/401/403/404 |
+| DELETE /api/households/{householdId}/membership | Authenticated, Testing-only | Member/Guest leaves; every Owner refused; 204/401/404/409 |
+| DELETE /api/households/{householdId} | Authenticated, Testing-only | Owner closes by physical delete, membership cascade, Accounts preserved; 204/401/403/404 |
+
+Household route IDs are constrained as Guids in endpoint mappings.
+
+Source anchors: [Program](../../../backend/src/HomePlatform.Api/Program.cs),
+[Household endpoints](../../../backend/src/HomePlatform.Api/Households/HouseholdEndpoints.cs),
+[Domain behavior](../../../backend/src/HomePlatform.Domain/Household/Household.cs),
+[repository](../../../backend/src/HomePlatform.Infrastructure/Persistence/Repositories/HouseholdRepository.cs),
+[Application handlers](../../../backend/src/HomePlatform.Application/Households),
+and [Identity adapters](../../../backend/src/HomePlatform.Infrastructure/Identity).
+
+Four migrations exist: InitialHousehold, LimitHouseholdNameLength,
+AddIdentityPersistence and AddHouseholdMemberAccountReference. The nullable
+Account FK uses ClientNoAction / NO ACTION and has an AccountId lookup index.
+The repository pins dotnet-ef 10.0.11.
+
+Three test projects contain unit, dependency, real PostgreSQL/Testcontainers,
+HTTP and generated OpenAPI coverage. The CI workflow defines build, test,
+formatting, dependency audit and migration checks. Historical local runs are
+listed in [NEXT-STEPS](../roadmap/NEXT-STEPS.md#verified-locally); test source and
+workflow presence do not establish current runtime success, hosted CI or a
+verified deployment.
+
+**Not implemented in this main snapshot:** current-Account validity on each
+protected request, Household optimistic concurrency, DeleteAccount, verified
+link/unlink and invitations, paginated read projections, frontend, Tasks,
+Shopping and Events. Authentication recovery/confirmation/revocation and
+operational release controls are incomplete. Resource authorization is partial:
+transfer/leave/close check loaded membership/role and conceal missing Households
+and nonmember access with 404. Known non-Owner members receive 403 for
+transfer/close; transfer validates the target only after actor authorization. No production Household exposure
+is implied by these Testing-only operations.
 
 ### Current DDD status
 
 HomePlatform uses tactical DDD in the small Household aggregate: independent
-Membership identity, protected member creation, initial Owner, and scoped
-duplicate-link invariants. Handlers, DTOs, DI, and four assemblies are application
+Membership identity, protected member creation, initial Owner, scoped
+duplicate-link invariants and explicit transfer/leave/close rules. Handlers, DTOs, DI, and four assemblies are application
 architecture, not additional DDD patterns. Identity is a framework-owned
 supporting capability. Multiple implemented bounded contexts or strategic DDD
 are not established by this snapshot.
 
-## Target state
+## Future direction / Target state
 
 HomePlatform remains one pragmatic modular monolith:
 
@@ -137,7 +175,7 @@ The target business boundaries are summarized in the
 [authoritative context map](CONTEXT-MAP.md). They start as feature folders and
 namespaces inside the existing assemblies. Do not create a project per context.
 
-Candidate feature areas are Identity & Access, Households, Tasks & Routines,
+Candidate feature areas are Identity & Access, People/Relationships, Households, Tasks & Routines,
 Shopping, optional Events, and a read-only Today composition. They do not each
 require a separate bounded context; apply the context-map promotion criteria.
 Notifications and Calendar Integration begin as supporting modules only when a
@@ -162,8 +200,8 @@ Rules:
 - clients never select the authenticated actor;
 - handlers are explicit classes; no mediator is required;
 - repositories speak aggregate/use-case persistence, not generic CRUD;
-- one aggregate write normally commits once. The current repository AddAsync
-  includes the durable commit; it does not merely stage a new entity;
+- one aggregate write normally commits once. Current AddAsync, UpdateAsync and
+  DeleteAsync each call SaveChangesAsync; they are not staging-only operations;
 - expected errors use stable Application outcomes; unexpected exceptions remain
   generic at the HTTP boundary.
 
@@ -207,7 +245,7 @@ For each behavior:
 Do not pre-create base entities, aggregate-root frameworks, generic
 repositories, events, or empty modules.
 
-## Accepted Account and Membership boundary
+## AS-IS Account and Membership boundary and TARGET evolution
 
 [ADR 0006](../adr/0006-separate-account-and-household-membership-identity.md)
 was Accepted on 2026-08-30. Its core identity model is implemented:
@@ -226,15 +264,19 @@ registration use-case boundary transiently; they do not belong in Household Doma
 
 The optional Account FK now enforces non-null reference existence and rejects
 unresolved Account deletion. Verified linking/unlinking workflows,
-protected-request current-Account validation, ownership lifecycle, last-Owner
-concurrency and assignment/history preservation remain follow-up work. No global
-Person context or general capability engine is justified.
+protected-request current-Account validation, last-Owner concurrency and future
+assignment/history handling remain follow-up work. Transfer/leave/close exist
+with the limited behavior described above. ADR 0007 now accepts Person as the
+human identity and evolves Membership toward Person participation. Exact
+Account–Person linking/persistence and module/aggregate boundaries remain open;
+no general capability engine or Domain Account aggregate is justified.
 
 ### Adopted Account deletion and ownership lifecycle
 
 [DELETION-DESIGN.md](../../privacy/DELETION-DESIGN.md) is canonical for
-DeleteAccount, LeaveHousehold, TransferOwnership and CloseHousehold. All four
-are NOT YET IMPLEMENTED. Account deletion resolves every Household membership;
+DeleteAccount, LeaveHousehold, TransferOwnership and CloseHousehold. The three
+Household operations are IMPLEMENTED with Testing-only endpoints; DeleteAccount
+is NOT IMPLEMENTED in committed main. Planned Account deletion resolves every Household membership;
 it is not implicit Household deletion. Membership never implies ownership or
 automatic promotion. A continuing Household must retain an Account-linked
 Owner; its departing last Owner explicitly transfers to a concrete eligible
@@ -280,7 +322,7 @@ service is justified.
 Current persistence uses MembershipId as the member primary key, a required
 HouseholdId foreign key with cascade delete, and a unique unfiltered index on
 (HouseholdId, AccountId). PostgreSQL permits multiple null AccountIds. No active
-membership flag/filter exists. **IMPLEMENTED / VERIFIED locally:** nullable
+membership flag/filter exists. **IMPLEMENTED; historical local verification on 2026-09-14:** nullable
 HouseholdMember.AccountId references AspNetUsers.Id with EF ClientNoAction and
 PostgreSQL NO ACTION. AddHouseholdMemberAccountReference adds the FK and a
 separate AccountId index for cross-Household lookup. Tests prove valid/null
@@ -288,7 +330,7 @@ links, missing-Account rejection and tracked/untracked deletion guards, plus
 valid-data upgrades and failure on dangling historical links without silent
 cleanup. Actual environment data/migration state remains NOT VERIFIED.
 
-DeleteAccount remains NOT YET IMPLEMENTED: it must explicitly remove all linked
+DeleteAccount remains NOT IMPLEMENTED in committed main: it must explicitly remove all linked
 memberships after ownership resolution and before Identity deletion, without
 Account-to-HouseholdMember CASCADE DELETE or automatic SET NULL. The existing
 Household-to-member cascade is a different relationship and does not authorize
@@ -300,12 +342,12 @@ values, Owner Account presence, and at least one Owner have no database checks.
 This does not expose public mutation today; review final guards when adding
 alternate write paths. EF materialization does not rerun the public constructor.
 
-## Identity and authorization
+## Identity and authorization target
 
 ```text
 ASP.NET Core authentication
   -> trusted AccountId
-  -> check current Account existence/validity for protected product requests
+  -> optional future current-Account validation (deferred hardening)
   -> resolve current Membership for HouseholdId
   -> apply role/resource policy
   -> execute authorized use case
@@ -315,11 +357,11 @@ ASP.NET Core authentication
 - Household roles are not global Identity roles or long-lived claims.
 - `RequireAuthorization()` proves authentication, not resource access.
 - Every object/Household identifier is authorized server-side.
-- ADOPTED, NOT YET IMPLEMENTED: after successfully committed DeleteAccount,
-  deny new protected product requests even with an unexpired access token.
-  Current opaque access validation does not reload Account state; add focused
-  current-Account validation alongside resource membership checks. Exact token
-  lifetime is OPEN and cannot replace this requirement.
+- DEFERRED TECHNICAL DEBT: an already-issued short-lived access token may
+  remain usable until expiry after Account deletion without immediate server-side
+  revocation/current-Account validation. Exact lifetime and the acceptable
+  release window remain OPEN. Refresh must separately reject deleted/invalid
+  Accounts; token authentication never substitutes for resource authorization.
 - Missing or malformed subject identity produces 401 and zero mutation.
 - Use one documented first-party authentication mode; do not invent custom
   password/token cryptography.
@@ -347,7 +389,7 @@ detailed trust model and release gates.
 - Establish mobile compatibility/deprecation policy before public app-store
   distribution.
 
-## Testing and concurrency
+## Testing and concurrency requirements
 
 - Domain tests prove invariants without frameworks.
 - Application tests use hand-written fakes where small and clear.
@@ -379,7 +421,7 @@ number, future feature name, or portfolio goal does not trigger infrastructure.
 | Timing | Candidate | Problem/trigger and simplest first response |
 |---|---|---|
 | Now | Four layers, explicit handlers, aggregate repository, one DbContext | Keep the existing use-case, Domain, and persistence separation. No structural rewrite. |
-| Next | Household ownership lifecycle, starting with TransferOwnership test-first, then current-Account validation and DeleteAccount | Account-reference integrity is verified locally. Follow NEXT-STEPS and the deletion design. Dependency guards and confirmation/recovery/revocation remain gates; no new generic privacy/session framework. |
+| Next, per NEXT-STEPS | Minimal Person foundation and membership evolution | Design link/migration/lifecycle first, preserve current behavior, then prove Person independent of Account through a concrete flow. |
 | Next, with first read | Queries/read DTOs | Project authorized data from the same PostgreSQL database; do not hydrate aggregates for display. |
 | Later if needed | Bounded context split | Independent language, invariants, model, lifecycle, ownership, and reasons to change are demonstrated; start with folders/contracts. |
 | Later if needed | Domain events | One domain action has multiple independent reactions and direct orchestration becomes coupled. Start in process and decide before/after-commit semantics. |
@@ -397,11 +439,18 @@ number, future feature name, or portfolio goal does not trigger infrastructure.
 | Not planned | Microservices / multiple databases | Reconsider only when independent deployment, scaling, or ownership requirements outweigh distributed-system cost. Modular monolith remains preferred. |
 | Later if needed | Redis / WebSockets | Measured query or sub-second UX need defeats indexing/projection or refetch/polling, with invalidation/conflict semantics defined. |
 | Not planned | Kubernetes / multi-region | Requires explicit availability, recovery, scale, and operating-budget evidence. |
-| Not planned | Global Person/Profile / general capability engine | Requires independent cross-household identity lifecycle or permissions that the role/resource matrix cannot express. |
+| Deferred hardening | Current-Account validity, Household concurrency, DeleteAccount completion | Triggers and evidence live in the debt register/security/deletion design; not blanket prerequisites to product development. |
+| Not planned | General capability engine | Reconsider only if concrete permissions cannot be expressed by focused role/resource policy. |
 
-## Success evidence
+## Product and release evidence
 
-The target is not achieved until:
+Incremental product success means a stable human identity without forced login,
+separate participation in each Household, and real flows validating those
+boundaries. Each slice needs proportionate correctness and authorization proof.
+DI reviews, SQL-plan analysis and broad test-strategy consolidation follow real
+implementation needs; they do not all precede Person development.
+
+**RELEASE GATE:** production readiness additionally requires:
 
 - the solution and every test project are green;
 - the four-project dependency direction remains enforced;

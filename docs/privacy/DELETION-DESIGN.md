@@ -1,11 +1,14 @@
 # HomePlatform Deletion Design
 
-Status: **ADOPTED product/domain decisions; Account-reference integrity IMPLEMENTED / VERIFIED locally; lifecycle operations NOT YET IMPLEMENTED**
+Status: **ADOPTED decisions; Account FK and Household lifecycle primitives IMPLEMENTED; DeleteAccount NOT IMPLEMENTED in committed main**
 
 Decision date: **2026-09-13**
 
-Initial decision evidence: `main@07eeb12`; source inspection on 2026-09-13.
-Account-reference review: **2026-09-14**, `main@bc03a00` plus the user-owned
+Current source review: **2026-09-19**, committed `main@1ca1dd0`. Separate
+uncommitted DeleteAccount work is excluded. No runtime tests were rerun.
+
+Historical initial decision evidence: `main@07eeb12`; source inspection on 2026-09-13.
+Historical Account-reference review: **2026-09-14**, `main@bc03a00` plus the user-owned
 uncommitted implementation and tests; local PostgreSQL/build evidence below.
 No deployed database or real-user data was inspected.
 
@@ -21,8 +24,9 @@ Status vocabulary across the privacy documents:
 - **ADOPTED:** a product/domain rule or architecture direction has been decided.
 - **PROPOSED:** a candidate requiring a later decision; not a binding rule.
 - **OPEN:** no final decision exists.
-- **IMPLEMENTED / VERIFIED locally:** current code and local tests establish the
-  stated behavior; this does not certify deployment or operational controls.
+- **IMPLEMENTED:** present in the stated committed source snapshot.
+- **VERIFIED locally:** executed checks establish behavior only for the dated
+  source/run stated; this does not certify current HEAD, deployment or operations.
 - **NOT YET IMPLEMENTED:** the required behavior is absent; adopting a rule
   does not prove runtime enforcement.
 
@@ -30,6 +34,23 @@ The task brief supplies the adopted decisions and the prior audit's requested
 privacy-document set. No standalone HomePlatform privacy audit was found in
 the repository. The initial supporting documents use the brief and live
 repository evidence; they do not infer missing audit findings or legal facts.
+
+## Person target and revised hardening priority — 2026-09-20
+
+[ADR 0007](../architecture/adr/0007-person-as-stable-human-identity.md) accepts
+Person as stable human identity separate from credentials and memberships.
+Person/Relationship are TARGET; CareCircle is FUTURE. None is implemented.
+The current Account-linked deletion/no-conversion policy remains adopted for
+AS-IS. It does not decide future Person survival, deletion, relationship fate
+or care access. Design those lifecycles before the affected Person migration;
+do not infer an Account-to-Person cascade or automatic retention.
+
+The earlier immediate post-deletion access-denial rule is superseded by the
+explicit deferral in [Authentication After Deletion](#authentication-after-deletion).
+Refresh denial remains separate. NEXT-STEPS prioritizes product/domain work;
+this document preserves lifecycle and release requirements, not another schedule.
+Uncommitted DeleteAccount source includes transaction/rollback code and tests;
+its atomicity, ownership resolution and readiness are not verified by this task.
 
 ## Adopted Decisions
 
@@ -57,8 +78,10 @@ repository evidence; they do not infer missing audit findings or legal facts.
    on 2026-09-14; see Database Guardrails.
 10. Do not use Account-to-HouseholdMember `CASCADE DELETE` or automatic
     `SET NULL` as lifecycle logic. Resolve relations explicitly first.
-11. After DeleteAccount successfully commits, new protected product requests
-    from that Account must be denied, including with an unexpired access token.
+11. **Revised 2026-09-20 — DEFERRED TECHNICAL DEBT:** immediate denial of an
+    already-issued access token is not currently required before product work.
+    Record its possible validity until expiry, decide the release risk, and
+    separately require deleted/invalid-Account Refresh denial.
 12. DeleteAccount is normal product lifecycle; an Article 17 erasure request
     is a separate privacy/legal request with potentially different scope.
     Reuse concrete deletion logic where appropriate, without a generic
@@ -84,14 +107,17 @@ repository evidence; they do not infer missing audit findings or legal facts.
 | Operation | Scope and adopted boundary | Implementation status |
 |---|---|---|
 | DeleteAccount | Resolve ownership rules, explicitly delete all Account-linked HouseholdMember memberships across all Households, then delete Identity/ApplicationUser and Account-owned data; no conversion to loginless or implicit Household closure | NOT YET IMPLEMENTED |
-| LeaveHousehold | Resolve departure from one Household while preserving the Account and other memberships; protect the last Owner | NOT YET IMPLEMENTED |
-| TransferOwnership | Explicitly choose an eligible Account-linked destination; no automatic promotion | NOT YET IMPLEMENTED |
-| CloseHousehold | Explicitly end a Household through its approved shared-data/privacy policy; not an implicit side effect of deleting an Account | NOT YET IMPLEMENTED |
+| LeaveHousehold | Depart from one Household while preserving Account and other memberships | IMPLEMENTED, Testing-only: removes caller Member/Guest; refuses every Owner with 409, even if another Owner remains |
+| TransferOwnership | Explicitly choose an eligible Account-linked destination; no automatic promotion | IMPLEMENTED, Testing-only: current Owner demoted to Member, target promoted to Owner; IDs preserved; destination acceptance and concurrency remain open |
+| CloseHousehold | Explicitly end a Household, separately from Account deletion | IMPLEMENTED, Testing-only: Owner authorizes physical Household deletion; all its memberships cascade-delete, Accounts survive; future record-type policies remain open |
 
-These are use-case names, not approved endpoint contracts. Decide exact API
-shapes during implementation review. DeleteAccount membership fate is
+The three Household HTTP contracts are recorded in
+[TARGET-ARCHITECTURE](../architecture/target/TARGET-ARCHITECTURE.md#current-architecture).
+Their Domain, handler, persistence and endpoint tests exist; no new passing
+runtime result is claimed here. DeleteAccount membership fate is
 **ADOPTED: delete, never automatically convert to loginless**. This does not
-decide standalone LeaveHousehold behavior or concrete future feature lifecycles.
+decide concrete future feature lifecycles. Current standalone LeaveHousehold
+behavior is the stricter Owner-refusal rule shown above; relaxing it is OPEN.
 A stable MembershipId does not mandate retaining a Membership or personal
 attribution after deletion.
 
@@ -127,7 +153,8 @@ or leave no partial deletion. Exact concurrency and transaction mechanics are
   Account link. Loginless HouseholdMembers cannot be that destination.
 - The current [HouseholdMember constructor](../../backend/src/HomePlatform.Domain/Household/HouseholdMember.cs)
   rejects Owner with null AccountId. This is a construction invariant, not proof
-  of database referential integrity or implemented transfer/leave/deletion flows.
+  of database referential integrity or lifecycle concurrency safety. The FK and
+  sequential transfer/leave/close behavior are implemented separately.
 - Destination acceptance is **OPEN** and may become a separately decided flow.
 
 ## Last Owner Flow
@@ -160,7 +187,7 @@ flowchart TD
     N --> O[Revalidate and apply approved lifecycle atomically]
     O --> R[Explicitly delete all Account-linked memberships]
     R --> P[Delete Identity Account and commit]
-    P --> Q[Future protected product requests denied]
+    P --> Q[Refresh denied; access may remain valid until expiry]
 ```
 
 The diagram describes required behavior, not existing code. Invalid choices or
@@ -258,7 +285,7 @@ persisted data must answer the following before it is lifecycle-complete:
 
 For each new persisted feature:
 
-- [ ] Record scope classified: Account / Membership / Household
+- [ ] Record scope classified: Account / Membership / Household; Person/Relationship when introduced
 - [ ] Personal-reference fields identified
 - [ ] LeaveHousehold behavior defined
 - [ ] DeleteAccount behavior defined
@@ -292,7 +319,7 @@ record type on CloseHousehold remain **OPEN**. See the
 
 ## Database Guardrails
 
-**IMPLEMENTED / VERIFIED locally:** [HouseholdMemberConfiguration](../../backend/src/HomePlatform.Infrastructure/Persistence/Configurations/HouseholdMemberConfiguration.cs)
+**IMPLEMENTED; historical local verification on 2026-09-14:** [HouseholdMemberConfiguration](../../backend/src/HomePlatform.Infrastructure/Persistence/Configurations/HouseholdMemberConfiguration.cs)
 maps nullable `AccountId -> AspNetUsers.Id` with EF `DeleteBehavior.ClientNoAction`.
 The [migration](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/20260913183105_AddHouseholdMemberAccountReference.cs),
 its designer and [model snapshot](../../backend/src/HomePlatform.Infrastructure/Persistence/Migrations/HomePlatformDbContextModelSnapshot.cs)
@@ -312,7 +339,8 @@ intact and the FK is enforced; dangling data makes the migration fail with
 unchanged memberships, AccountIds, Accounts and migration history. It does not
 silently null a link, delete a membership or invent an Account. Inspect actual
 existing rows before an environment upgrade; those rows and deployment state
-are NOT VERIFIED by local tests. Build passed without warnings/errors; the full
+are NOT VERIFIED by local tests. In that historical run, build passed without
+warnings/errors; the full
 solution passed **119/119: Domain 25, Application 16, Integration 78; 0 skipped**.
 
 **ADOPTED; DeleteAccount NOT YET IMPLEMENTED:** explicitly delete all memberships
@@ -334,32 +362,31 @@ The approved CloseHousehold flow must assess its own data consequences.
 
 ## Authentication After Deletion
 
-**ADOPTED:** after DeleteAccount successfully commits, new protected product
-requests from the deleted Account must be denied immediately. Waiting for
-access-token expiry does not satisfy this rule.
+**DEFERRED TECHNICAL DEBT — revised decision 2026-09-20:** an already-issued
+short-lived access token may remain usable until expiry after Account deletion
+unless immediate server-side revocation/current-Account validation is implemented.
+This explicitly replaces the earlier immediate-denial requirement as a universal
+development prerequisite. Exact lifetime and acceptable production exposure are
+OPEN and must be reviewed before release; no immediate revocation is claimed.
 
-**Current gap:** [HttpCurrentAccount](../../backend/src/HomePlatform.Api/Identity/HttpCurrentAccount.cs)
-only validates authenticated subject claims. The [bearer registration](../../backend/src/HomePlatform.Infrastructure/DependencyInjection.cs)
-adds no current-Account check. The framework's
-[BearerTokenHandler at v10.0.11](https://github.com/dotnet/aspnetcore/blob/v10.0.11/src/Security/Authentication/BearerToken/src/BearerTokenHandler.cs)
-validates a protected access ticket and expiry without reloading its Account.
-Thus an existing opaque access token can currently remain usable until expiry.
-This is source/framework evidence about access validation. Direct database
-deletion guard tests do not prove the future DeleteAccount or post-deletion
-request-denial behavior.
+**AS-IS:** [HttpCurrentAccount](../../backend/src/HomePlatform.Api/Identity/HttpCurrentAccount.cs)
+parses authenticated subject claims; the
+[bearer registration](../../backend/src/HomePlatform.Infrastructure/DependencyInjection.cs)
+adds no current-Account check. The Account FK guards data references, not access
+tickets. Household membership/role checks remain required and independently
+restrict access after membership removal.
 
-**Required implementation:** verify current Account existence/validity for
-protected product requests, and resolve current Household membership and role
-for Household authorization. Token authentication alone proves neither current
-Account existence nor resource access. This requires no custom session/OAuth
-framework. Exact access-token lifetime remains **OPEN**.
+**Refresh is separate:** [IdentityAccountRefresh](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountRefresh.cs)
+validates expiry and the current user's security stamp. Deleted/invalid Accounts
+must not renew access. The existing check is not proof of completed DeleteAccount
+integration or of revoking an already-issued access token. When reviewing that
+work, prove Refresh denial and record the residual access window explicitly.
 
-[IdentityAccountRefresh](../../backend/src/HomePlatform.Infrastructure/Identity/IdentityAccountRefresh.cs)
-already validates expiry and the current user's security stamp before renewal.
-That refresh check is distinct from access-request validation. Future deletion
-tests must prove denial with a previously issued unexpired access token and
-rejection of refresh after Account deletion; existing refresh tests are not
-DeleteAccount evidence.
+Introduce focused current-Account validation or revocation when concrete product
+risk, a feature dependency or a release requirement demands immediate cutoff.
+[TD-020](../architecture/roadmap/TECHNICAL-DEBT-REGISTER.md) and the
+[security roadmap](../architecture/roadmap/SECURITY-ROADMAP.md) retain that work;
+no generic session/OAuth framework is required.
 
 ## GDPR Erasure Relationship
 
@@ -387,14 +414,16 @@ The following separate decisions remain open:
 | Attribution/history in future shared records | OPEN per record type; unnecessary personal-reference removal is ADOPTED, precise fields/history behavior is not |
 | Concrete Tasks/Shopping/Events/Routines lifecycles | OPEN: scope, LeaveHousehold/DeleteAccount/CloseHousehold behavior and feature-specific hard-delete rules require feature design |
 | DeleteAccount reauthentication UX | OPEN before exposing DeleteAccount |
-| Exact access-token lifetime | OPEN; cannot relax immediate denial after committed deletion |
+| Exact access-token lifetime / revocation | OPEN; document acceptable expiry window for release, or require immediate cutoff based on risk |
+| Person lifecycle / Account–Person link | OPEN before affected migration: Person survival/deletion, management authority, relationship fate and cross-Household access; current membership policy does not answer these |
 | Retention periods | OPEN; no settled durations |
 | Backup retention | OPEN; no settled duration or restore/deletion procedure |
 | Final child-account policy | OPEN; loginless people still require privacy handling |
 | Exact Article 6 legal basis per processing activity | OPEN; no basis finalized here |
 | Hosting/provider/region decisions | OPEN; earlier Azure designs are PROPOSED options |
 | Immediate hard deletion of every future record type by CloseHousehold | OPEN; explicit closure does not settle all future data policies |
-| Precise concurrency strategy | OPEN; atomicity and preservation of invariants remain required |
+| Precise concurrency strategy | OPEN; no Household concurrency token on main; atomicity and preservation of invariants remain required |
+| Standalone Owner leave | Current implementation refuses every Owner; whether to permit departure when another Owner remains is OPEN |
 
 There is no adopted grace period. Do not add one without a later concrete
 product decision. Resolve the relevant open decisions before implementing the
@@ -403,19 +432,22 @@ affected behavior; do not invent defaults while coding.
 ## Implementation Sequence
 
 The [next steps](../architecture/roadmap/NEXT-STEPS.md) own executable ordering.
-These phases describe dependencies, not new public endpoints.
+These phase labels describe lifecycle dependencies and acceptance gates, not
+an alternative execution order or a claim that every primitive is absent.
 
 | Phase | Scope | Required evidence / gate |
 |---|---|---|
 | A — docs/decisions | Record the adopted lifecycle and preserve open questions | This document and active product/architecture/roadmap docs agree; no runtime completion claim |
 | B — Account reference integrity | IMPLEMENTED / VERIFIED locally: nullable FK, AccountId index, ClientNoAction / NO ACTION and real Identity-seeded fixtures | 12 integrity cases plus 2 valid/dangling upgrade cases; actual environment data still requires inspection before upgrade |
-| C — Household lifecycle primitives | NEXT CODE PHASE, NOT YET IMPLEMENTED: TransferOwnership test-first, then required LeaveHousehold/CloseHousehold work; define standalone leave and required feature data behavior; authorized Domain invariants and concurrency | Explicit destination/closure, no automatic promotion, no loginless Owner, no continuing ownerless Household, rollback/race proof |
-| D — protected request current-Account validation | Check current Account existence/validity; current membership checks for Household access | Previously issued unexpired access token cannot authorize a new product request after Account deletion; removed membership cannot retain Household access |
-| E — DeleteAccount | Resolve ownership across all Households, refuse unresolved last-Owner cases, explicitly delete every Account-linked membership without loginless conversion, atomically apply approved lifecycle and delete Identity Account | Multi-Household membership deletion/no-conversion, ownership success/refusal, rollback, concurrency, feature-specific reference cleanup, existing loginless-person cases, and post-commit access/refresh denial |
+| C — Household lifecycle primitives | IMPLEMENTED through Testing-only HTTP/Application/Domain/persistence: transfer, non-Owner leave and Owner close; concurrency and broader authorization proof remain open | Explicit destination/closure, no automatic promotion, no loginless Owner, no continuing ownerless Household, rollback/race proof |
+| D — DEFERRED immediate current-Account validation | Trigger on concrete immediate-cutoff or release risk; current membership checks remain required | Prove unexpired-token denial if selected; otherwise explicitly document acceptable access expiry window; removed membership cannot retain Household access |
+| E — DeleteAccount | Resolve ownership across all Households, refuse unresolved last-Owner cases, explicitly delete every Account-linked membership without loginless conversion, atomically apply approved lifecycle and delete Identity Account | Multi-Household membership deletion/no-conversion, ownership success/refusal, rollback, concurrency, feature-specific reference cleanup, existing loginless-person cases, post-commit Refresh denial and the chosen access-token policy |
 | F — wider privacy rights | ExportMyData, rectification/ChangeEmail, wider request handling | Decide scope/verification and remaining legal questions; protect other people's data |
 | G — operations/release | Retention, backups/restore, provider/region decisions, production privacy/security gates | Validate real operational controls before real-user release; documentation and local tests alone are insufficient |
 
-**TransferOwnership is the next CODE feature, starting test-first.** The local
-Account-reference verification does not close the policy questions required
-for later phases. Phase G is the final release gate, not permission to process real-user data before privacy/security review.
+**NEXT:** follow NEXT-STEPS for the incremental Person foundation. Pull lifecycle
+hardening and review of existing DeleteAccount work forward when its concrete
+feature dependency, risk or release exposure warrants it. Existing
+lifecycle primitives and historical local FK verification do not close the
+remaining policy or race-safety gates. Phase G is the final release gate, not permission to process real-user data before privacy/security review.
 No new generic privacy, transaction, session, or OAuth framework is planned.
