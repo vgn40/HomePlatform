@@ -2,5 +2,6 @@ namespace HomePlatform.Domain.Household;
 
 public enum CloseHouseholdError
 {
-    CurrentAccountNotOwner
+    CurrentAccountNotOwner,
+    CurrentAccountNotMember
 }

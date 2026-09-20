@@ -50,17 +50,24 @@ public sealed class TransferOwnershipHandler
         {
             return transferResult.Error switch
             {
+                TransferOwnershipError.CurrentAccountNotMember
+                    => TransferOwnershipResult.NotFound(),
+
                 TransferOwnershipError.CurrentAccountNotOwner
                     => TransferOwnershipResult.Forbidden(),
+
                 TransferOwnershipError.NewOwnerNotFound
                     => TransferOwnershipResult.Invalid(
                         "New owner is not a member of this household."),
+
                 TransferOwnershipError.NewOwnerHasNoAccount
                     => TransferOwnershipResult.Invalid(
                         "New owner must be linked to an account."),
+
                 TransferOwnershipError.CannotTransferToSelf
                     => TransferOwnershipResult.Invalid(
                         "Owner cannot transfer ownership to themselves."),
+
                 _ => throw new InvalidOperationException(
                     "Unexpected TransferOwnership domain error.")
             };

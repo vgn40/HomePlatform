@@ -87,12 +87,17 @@ public class Household
         Guid currentOwnerAccountId,
         Guid newOwnerMembershipId)
     {
-        var currentOwner = _members.FirstOrDefault(
+        var currentMember = _members.FirstOrDefault(
             member =>
-                member.AccountId == currentOwnerAccountId &&
-                member.Role == HouseholdRole.Owner);
+                member.AccountId == currentOwnerAccountId);
 
-        if (currentOwner is null)
+        if (currentMember is null)
+        {
+            return TransferOwnershipDomainResult.Failure(
+                TransferOwnershipError.CurrentAccountNotMember);
+        }
+
+        if (currentMember.Role != HouseholdRole.Owner)
         {
             return TransferOwnershipDomainResult.Failure(
                 TransferOwnershipError.CurrentAccountNotOwner);
@@ -108,7 +113,7 @@ public class Household
                 TransferOwnershipError.NewOwnerNotFound);
         }
 
-        if (newOwner.MembershipId == currentOwner.MembershipId)
+        if (newOwner.MembershipId == currentMember.MembershipId)
         {
             return TransferOwnershipDomainResult.Failure(
                 TransferOwnershipError.CannotTransferToSelf);
@@ -121,7 +126,7 @@ public class Household
         }
 
         newOwner.ChangeRole(HouseholdRole.Owner);
-        currentOwner.ChangeRole(HouseholdRole.Member);
+        currentMember.ChangeRole(HouseholdRole.Member);
 
         UpdatedAt = DateTime.UtcNow;
 
@@ -156,12 +161,17 @@ public class Household
     public CloseHouseholdDomainResult Close(
         Guid currentAccountId)
     {
-        var currentOwner = _members.FirstOrDefault(
+        var currentMember = _members.FirstOrDefault(
             member =>
-                member.AccountId == currentAccountId &&
-                member.Role == HouseholdRole.Owner);
+                member.AccountId == currentAccountId);
 
-        if (currentOwner is null)
+        if (currentMember is null)
+        {
+            return CloseHouseholdDomainResult.Failure(
+                CloseHouseholdError.CurrentAccountNotMember);
+        }
+
+        if (currentMember.Role != HouseholdRole.Owner)
         {
             return CloseHouseholdDomainResult.Failure(
                 CloseHouseholdError.CurrentAccountNotOwner);

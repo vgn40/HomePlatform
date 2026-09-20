@@ -49,7 +49,7 @@ public sealed class LeaveHouseholdHandler
             return leaveResult.Error switch
             {
                 LeaveHouseholdError.CurrentAccountNotMember
-                    => LeaveHouseholdResult.Forbidden(),
+                    => LeaveHouseholdResult.NotFound(),
 
                 LeaveHouseholdError.OwnerCannotLeave
                     => LeaveHouseholdResult.Invalid(

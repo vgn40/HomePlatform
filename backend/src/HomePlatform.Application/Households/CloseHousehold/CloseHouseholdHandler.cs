@@ -48,6 +48,9 @@ public sealed class CloseHouseholdHandler
         {
             return closeResult.Error switch
             {
+                CloseHouseholdError.CurrentAccountNotMember
+                    => CloseHouseholdResult.NotFound(),
+
                 CloseHouseholdError.CurrentAccountNotOwner
                     => CloseHouseholdResult.Forbidden(),
 
