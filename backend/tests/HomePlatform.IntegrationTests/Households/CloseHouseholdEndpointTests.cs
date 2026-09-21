@@ -183,19 +183,12 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
                         membershipIds.Contains(
                             member.MembershipId)));
 
-        foreach (var accountId in closing.Members
-                     .Where(
-                         member =>
-                             member.AccountId.HasValue)
-                     .Select(
-                         member =>
-                             member.AccountId!.Value))
+        foreach (var member in closing.Members)
         {
-            Assert.True(
-                await db.Users.AnyAsync(
-                    user =>
-                        user.Id == accountId));
+            Assert.True(await db.Set<HomePlatform.Domain.Person.Person>()
+                .AnyAsync(person => person.Id == member.PersonId));
         }
+        Assert.Equal(3, await db.Users.CountAsync());
     }
 
     [Fact]
@@ -262,7 +255,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
 
         Assert.True(
             household.AddMember(
-                HouseholdRole.Member).IsSuccess);
+                HouseholdRole.Member, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
 
         await using var scope =
             _factory.Services.CreateAsyncScope();
@@ -280,7 +273,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
 
         Assert.True(
             unrelated.AddMember(
-                HouseholdRole.Guest).IsSuccess);
+                HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
 
         db.Add(unrelated);
 
@@ -349,7 +342,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
                         member =>
                             (
                                 member.MembershipId,
-                                member.AccountId,
+                                member.PersonId,
                                 member.Role))
                     .ToArray(),
                 current.Members
@@ -360,7 +353,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
                         member =>
                             (
                                 member.MembershipId,
-                                member.AccountId,
+                                member.PersonId,
                                 member.Role))
                     .ToArray());
         }

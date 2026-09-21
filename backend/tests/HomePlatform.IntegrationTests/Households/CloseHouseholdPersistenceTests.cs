@@ -33,13 +33,13 @@ public sealed class CloseHouseholdPersistenceTests : IAsyncLifetime
         await _factory.CreateIdentityAccountAsync(memberId);
         var household = new Household("Close persistence", ownerId);
         Assert.True(household.AddMember(HouseholdRole.Member, memberId).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest).IsSuccess);
+        Assert.True(household.AddMember(HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
         var membershipIds = household.Members.Select(m => m.MembershipId).ToArray();
         var unrelated = new Household("Unrelated home", memberId);
         Assert.True(unrelated.AddMember(HouseholdRole.Member, ownerId).IsSuccess);
-        Assert.True(unrelated.AddMember(HouseholdRole.Guest).IsSuccess);
+        Assert.True(unrelated.AddMember(HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
         var unrelatedMembers = unrelated.Members.OrderBy(m => m.MembershipId)
-            .Select(m => (m.MembershipId, m.AccountId, m.Role)).ToArray();
+            .Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray();
         await using (var setup = _factory.Services.CreateAsyncScope())
         {
             var db = setup.ServiceProvider.GetRequiredService<HomePlatformDbContext>();
@@ -72,7 +72,7 @@ public sealed class CloseHouseholdPersistenceTests : IAsyncLifetime
         Assert.Equal(unrelated.CreatedAt, remaining.CreatedAt);
         Assert.Equal(unrelated.UpdatedAt, remaining.UpdatedAt);
         Assert.Equal(unrelatedMembers, remaining.Members.OrderBy(m => m.MembershipId)
-            .Select(m => (m.MembershipId, m.AccountId, m.Role)).ToArray());
+            .Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray());
         Assert.Equal(unrelatedMembers.Length, await context.Set<HouseholdMember>().CountAsync());
     }
 

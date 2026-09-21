@@ -2,9 +2,8 @@ namespace HomePlatform.Domain.Household;
 
 public enum TransferOwnershipError
 {
-    CurrentAccountNotOwner,
+    CurrentPersonNotOwner,
     NewOwnerNotFound,
-    NewOwnerHasNoAccount,
     CannotTransferToSelf,
-    CurrentAccountNotMember
+    CurrentPersonNotMember
 }

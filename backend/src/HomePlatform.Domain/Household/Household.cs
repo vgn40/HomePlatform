@@ -23,7 +23,7 @@ public class Household
 
     public Household(
         string name,
-        Guid ownerAccountId)
+        Guid ownerPersonId)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -41,11 +41,11 @@ public class Household
                 nameof(name));
         }
 
-        if (ownerAccountId == Guid.Empty)
+        if (ownerPersonId == Guid.Empty)
         {
             throw new ArgumentException(
-                "Owner account ID cannot be empty.",
-                nameof(ownerAccountId));
+                "Owner person ID cannot be empty.",
+                nameof(ownerPersonId));
         }
 
         var now = DateTime.UtcNow;
@@ -57,25 +57,24 @@ public class Household
 
         var owner = new HouseholdMember(
             HouseholdRole.Owner,
-            ownerAccountId);
+            ownerPersonId);
 
         _members.Add(owner);
     }
 
     public Result AddMember(
         HouseholdRole role,
-        Guid? accountId = null)
+        Guid personId)
     {
-        if (accountId is Guid id &&
-            _members.Any(member => member.AccountId == id))
+        if (_members.Any(member => member.PersonId == personId))
         {
             return Result.Failure(
-                "Account is already linked to a membership in this household.");
+                "Person is already linked to a membership in this household.");
         }
 
         var member = new HouseholdMember(
             role,
-            accountId);
+            personId);
 
         _members.Add(member);
         UpdatedAt = DateTime.UtcNow;
@@ -83,24 +82,24 @@ public class Household
         return Result.Success();
     }
 
-    public TransferOwnershipDomainResult TransferOwnership(
-        Guid currentOwnerAccountId,
+    public TransferOwnershipDomainResult ValidateTransferOwnership(
+        Guid currentOwnerPersonId,
         Guid newOwnerMembershipId)
     {
         var currentMember = _members.FirstOrDefault(
             member =>
-                member.AccountId == currentOwnerAccountId);
+                member.PersonId == currentOwnerPersonId);
 
         if (currentMember is null)
         {
             return TransferOwnershipDomainResult.Failure(
-                TransferOwnershipError.CurrentAccountNotMember);
+                TransferOwnershipError.CurrentPersonNotMember);
         }
 
         if (currentMember.Role != HouseholdRole.Owner)
         {
             return TransferOwnershipDomainResult.Failure(
-                TransferOwnershipError.CurrentAccountNotOwner);
+                TransferOwnershipError.CurrentPersonNotOwner);
         }
 
         var newOwner = _members.FirstOrDefault(
@@ -119,31 +118,38 @@ public class Household
                 TransferOwnershipError.CannotTransferToSelf);
         }
 
-        if (newOwner.AccountId is null)
+        return TransferOwnershipDomainResult.Success();
+    }
+
+    public TransferOwnershipDomainResult TransferOwnership(
+        Guid currentOwnerPersonId,
+        Guid newOwnerMembershipId)
+    {
+        var validation = ValidateTransferOwnership(currentOwnerPersonId, newOwnerMembershipId);
+        if (!validation.IsSuccess)
         {
-            return TransferOwnershipDomainResult.Failure(
-                TransferOwnershipError.NewOwnerHasNoAccount);
+            return validation;
         }
 
+        var currentMember = _members.Single(member => member.PersonId == currentOwnerPersonId);
+        var newOwner = _members.Single(member => member.MembershipId == newOwnerMembershipId);
         newOwner.ChangeRole(HouseholdRole.Owner);
         currentMember.ChangeRole(HouseholdRole.Member);
-
         UpdatedAt = DateTime.UtcNow;
-
         return TransferOwnershipDomainResult.Success();
     }
 
     public LeaveHouseholdDomainResult Leave(
-        Guid currentAccountId)
+        Guid currentPersonId)
     {
         var currentMember = _members.FirstOrDefault(
             member =>
-                member.AccountId == currentAccountId);
+                member.PersonId == currentPersonId);
 
         if (currentMember is null)
         {
             return LeaveHouseholdDomainResult.Failure(
-                LeaveHouseholdError.CurrentAccountNotMember);
+                LeaveHouseholdError.CurrentPersonNotMember);
         }
 
         if (currentMember.Role == HouseholdRole.Owner)
@@ -159,22 +165,22 @@ public class Household
     }
 
     public CloseHouseholdDomainResult Close(
-        Guid currentAccountId)
+        Guid currentPersonId)
     {
         var currentMember = _members.FirstOrDefault(
             member =>
-                member.AccountId == currentAccountId);
+                member.PersonId == currentPersonId);
 
         if (currentMember is null)
         {
             return CloseHouseholdDomainResult.Failure(
-                CloseHouseholdError.CurrentAccountNotMember);
+                CloseHouseholdError.CurrentPersonNotMember);
         }
 
         if (currentMember.Role != HouseholdRole.Owner)
         {
             return CloseHouseholdDomainResult.Failure(
-                CloseHouseholdError.CurrentAccountNotOwner);
+                CloseHouseholdError.CurrentPersonNotOwner);
         }
 
         return CloseHouseholdDomainResult.Success();

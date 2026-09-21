@@ -1,5 +1,5 @@
 using HomePlatform.Domain.Household;
-using HomePlatform.Infrastructure.Identity;
+using HomePlatform.Domain.Person;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,12 +16,12 @@ public sealed class HouseholdMemberConfiguration
         builder.Property(member => member.MembershipId)
             .ValueGeneratedNever();
 
-        builder.Property(member => member.AccountId)
-            .IsRequired(false);
+        builder.Property(member => member.PersonId)
+            .IsRequired();
 
-        builder.HasOne<ApplicationUser>()
+        builder.HasOne<Person>()
             .WithMany()
-            .HasForeignKey(member => member.AccountId)
+            .HasForeignKey(member => member.PersonId)
             .OnDelete(DeleteBehavior.ClientNoAction);
 
         builder.Property(member => member.Role)
@@ -32,7 +32,7 @@ public sealed class HouseholdMemberConfiguration
 
         builder.HasIndex(
                 "HouseholdId",
-                nameof(HouseholdMember.AccountId))
+                nameof(HouseholdMember.PersonId))
             .IsUnique();
     }
 }

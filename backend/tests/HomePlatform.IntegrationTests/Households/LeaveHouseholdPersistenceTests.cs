@@ -35,10 +35,10 @@ public sealed class LeaveHouseholdPersistenceTests : IAsyncLifetime
         await _factory.CreateIdentityAccountAsync(accountId);
         var household = new Household("Leave persistence", ownerId);
         Assert.True(household.AddMember(role, accountId).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest).IsSuccess);
-        var targetId = household.Members.Single(member => member.AccountId == accountId).MembershipId;
+        Assert.True(household.AddMember(HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
+        var targetId = household.Members.Single(member => member.PersonId == accountId).MembershipId;
         var before = household.Members.OrderBy(member => member.MembershipId)
-            .Select(member => (member.MembershipId, member.AccountId, member.Role)).ToArray();
+            .Select(member => (member.MembershipId, member.PersonId, member.Role)).ToArray();
         await using (var setup = _factory.Services.CreateAsyncScope())
         {
             var db = setup.ServiceProvider.GetRequiredService<HomePlatformDbContext>();
@@ -63,8 +63,8 @@ public sealed class LeaveHouseholdPersistenceTests : IAsyncLifetime
         Assert.Equal(before.Length - 1, after.Members.Count);
         Assert.Equal(before.Where(member => member.MembershipId != targetId).ToArray(),
             after.Members.OrderBy(member => member.MembershipId)
-                .Select(member => (member.MembershipId, member.AccountId, member.Role)).ToArray());
-        Assert.Equal(ownerId, Assert.Single(after.Members, member => member.Role == HouseholdRole.Owner).AccountId);
+                .Select(member => (member.MembershipId, member.PersonId, member.Role)).ToArray());
+        Assert.Equal(ownerId, Assert.Single(after.Members, member => member.Role == HouseholdRole.Owner).PersonId);
         Assert.False(await context.Set<HouseholdMember>().AnyAsync(member => member.MembershipId == targetId));
         Assert.Equal(before.Length - 1, await context.Set<HouseholdMember>()
             .CountAsync(member => EF.Property<Guid>(member, "HouseholdId") == household.Id));

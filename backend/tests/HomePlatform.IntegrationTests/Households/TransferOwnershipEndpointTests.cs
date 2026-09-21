@@ -390,8 +390,8 @@ public sealed class TransferOwnershipEndpointTests : IAsyncLifetime
                         original.MembershipId);
 
             Assert.Equal(
-                original.AccountId,
-                member.AccountId);
+                original.PersonId,
+                member.PersonId);
 
             var expectedRole =
                 original.MembershipId == seed.TargetId
@@ -419,6 +419,7 @@ public sealed class TransferOwnershipEndpointTests : IAsyncLifetime
         HouseholdRole targetRole = HouseholdRole.Member,
         HouseholdRole callerRole = HouseholdRole.Member)
     {
+        var loginlessPersonId = await _factory!.CreateLoginlessPersonAsync();
         var ownerAccountId =
             Guid.NewGuid();
 
@@ -454,7 +455,7 @@ public sealed class TransferOwnershipEndpointTests : IAsyncLifetime
 
         Assert.True(
             household.AddMember(
-                HouseholdRole.Member).IsSuccess);
+                HouseholdRole.Member, loginlessPersonId).IsSuccess);
 
         await using var scope =
             _factory.Services.CreateAsyncScope();
@@ -474,19 +475,19 @@ public sealed class TransferOwnershipEndpointTests : IAsyncLifetime
             household.Members
                 .Single(
                     member =>
-                        member.AccountId ==
+                        member.PersonId ==
                         ownerAccountId)
                 .MembershipId,
             household.Members
                 .Single(
                     member =>
-                        member.AccountId ==
+                        member.PersonId ==
                         targetAccountId)
                 .MembershipId,
             household.Members
                 .Single(
                     member =>
-                        member.AccountId is null)
+                        member.PersonId == loginlessPersonId)
                 .MembershipId);
     }
 
@@ -548,7 +549,7 @@ public sealed class TransferOwnershipEndpointTests : IAsyncLifetime
                         member =>
                             (
                                 member.MembershipId,
-                                member.AccountId,
+                                member.PersonId,
                                 member.Role))
                     .ToArray(),
                 current.Members
@@ -559,7 +560,7 @@ public sealed class TransferOwnershipEndpointTests : IAsyncLifetime
                         member =>
                             (
                                 member.MembershipId,
-                                member.AccountId,
+                                member.PersonId,
                                 member.Role))
                     .ToArray());
         }

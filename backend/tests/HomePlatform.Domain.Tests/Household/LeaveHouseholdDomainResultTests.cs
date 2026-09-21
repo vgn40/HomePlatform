@@ -13,7 +13,7 @@ public sealed class LeaveHouseholdDomainResultTests
     }
 
     [Theory]
-    [InlineData(LeaveHouseholdError.CurrentAccountNotMember)]
+    [InlineData(LeaveHouseholdError.CurrentPersonNotMember)]
     [InlineData(LeaveHouseholdError.OwnerCannotLeave)]
     public void Failure_preserves_error(LeaveHouseholdError error)
     {

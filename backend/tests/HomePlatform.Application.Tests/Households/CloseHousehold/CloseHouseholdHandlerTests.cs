@@ -14,7 +14,7 @@ public sealed class CloseHouseholdHandlerTests
 
         var handler = new CloseHouseholdHandler(
             repository,
-            new UnauthenticatedCurrentAccount());
+            new FakeCurrentPerson(null));
 
         var result = await handler.Handle(
             new CloseHouseholdCommand(Guid.NewGuid()));
@@ -35,7 +35,7 @@ public sealed class CloseHouseholdHandlerTests
 
         var handler = new CloseHouseholdHandler(
             repository,
-            new FakeCurrentAccount(Guid.NewGuid()));
+            new FakeCurrentPerson(Guid.NewGuid()));
 
         var result = await handler.Handle(
             new CloseHouseholdCommand(id));
@@ -55,14 +55,14 @@ public sealed class CloseHouseholdHandlerTests
     [Fact]
     public async Task Handle_non_member_returns_not_found_without_delete()
     {
-        var accountId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
         var household = new Household(
             "Home",
             Guid.NewGuid());
 
         Assert.True(
             household.AddMember(
-                HouseholdRole.Guest).IsSuccess);
+                HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
         var before = CaptureState(household);
 
@@ -71,7 +71,7 @@ public sealed class CloseHouseholdHandlerTests
 
         var handler = new CloseHouseholdHandler(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId));
 
         var result = await handler.Handle(
             new CloseHouseholdCommand(
@@ -95,7 +95,7 @@ public sealed class CloseHouseholdHandlerTests
     public async Task Handle_non_owner_member_returns_forbidden_without_delete(
         HouseholdRole role)
     {
-        var accountId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
 
         var household = new Household(
             "Home",
@@ -104,11 +104,11 @@ public sealed class CloseHouseholdHandlerTests
         Assert.True(
             household.AddMember(
                 role,
-                accountId).IsSuccess);
+                personId).IsSuccess);
 
         Assert.True(
             household.AddMember(
-                HouseholdRole.Guest).IsSuccess);
+                HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
         var before = CaptureState(household);
 
@@ -117,7 +117,7 @@ public sealed class CloseHouseholdHandlerTests
 
         var handler = new CloseHouseholdHandler(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId));
 
         var result = await handler.Handle(
             new CloseHouseholdCommand(
@@ -138,11 +138,11 @@ public sealed class CloseHouseholdHandlerTests
     [Fact]
     public async Task Handle_owner_deletes_same_aggregate_once_after_read_and_forwards_token()
     {
-        var accountId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
 
         var household = new Household(
             "Home",
-            accountId);
+            personId);
 
         Assert.True(
             household.AddMember(
@@ -156,7 +156,7 @@ public sealed class CloseHouseholdHandlerTests
 
         var handler = new CloseHouseholdHandler(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId));
 
         using var cancellation =
             new CancellationTokenSource();
@@ -208,11 +208,11 @@ public sealed class CloseHouseholdHandlerTests
         bool failOnDelete,
         bool unauthorized)
     {
-        var accountId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
 
         var household = new Household(
             "Home",
-            accountId);
+            personId);
 
         Exception expected = unauthorized
             ? new UnauthorizedAccessException(
@@ -232,7 +232,7 @@ public sealed class CloseHouseholdHandlerTests
 
         var handler = new CloseHouseholdHandler(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId));
 
         var actual =
             await Record.ExceptionAsync(
@@ -261,7 +261,7 @@ public sealed class CloseHouseholdHandlerTests
 
         var handler = new CloseHouseholdHandler(
             repository,
-            new FakeCurrentAccount(Guid.NewGuid()));
+            new FakeCurrentPerson(Guid.NewGuid()));
 
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => handler.Handle(null!));
@@ -277,7 +277,7 @@ public sealed class CloseHouseholdHandlerTests
         DateTime UpdatedAt,
         (
             Guid MembershipId,
-            Guid? AccountId,
+            Guid PersonId,
             HouseholdRole Role
         )[] Members)
         CaptureState(Household household)
@@ -294,7 +294,7 @@ public sealed class CloseHouseholdHandlerTests
                     member =>
                         (
                             member.MembershipId,
-                            member.AccountId,
+                            member.PersonId,
                             member.Role))
                 .ToArray());
 
@@ -307,7 +307,7 @@ public sealed class CloseHouseholdHandlerTests
             DateTime UpdatedAt,
             (
                 Guid MembershipId,
-                Guid? AccountId,
+                Guid PersonId,
                 HouseholdRole Role
             )[] Members
         ) before)
@@ -335,19 +335,10 @@ public sealed class CloseHouseholdHandlerTests
             after.Members);
     }
 
-    private sealed class FakeCurrentAccount(
-        Guid accountId)
-        : ICurrentAccount
+    private sealed class FakeCurrentPerson(Guid? personId) : ICurrentPerson
     {
-        public Guid AccountId { get; } =
-            accountId;
-    }
-
-    private sealed class UnauthenticatedCurrentAccount
-        : ICurrentAccount
-    {
-        public Guid AccountId =>
-            throw new UnauthorizedAccessException();
+        public Task<Guid?> GetPersonIdAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(personId);
     }
 
     private sealed class RecordingHouseholdRepository(

@@ -142,7 +142,7 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
 
         Assert.DoesNotContain(
             await dbContext.Set<HouseholdMember>().ToListAsync(),
-            member => member.AccountId == callerSelectedAccountId);
+            member => member.PersonId == callerSelectedAccountId);
     }
 
     [Fact]
@@ -297,7 +297,7 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
         var owner = Assert.Single(household.Members);
         Assert.NotEqual(Guid.Empty, owner.MembershipId);
         Assert.Equal(HouseholdRole.Owner, owner.Role);
-        Assert.Equal(expectedOwnerAccountId, owner.AccountId);
+        Assert.Equal(expectedOwnerAccountId, owner.PersonId);
 
         await AssertRowCountsAsync(
             expectedHouseholds: 1,

@@ -7,12 +7,12 @@ public class HouseholdMember
     }
 
     public Guid MembershipId { get; }
-    public Guid? AccountId { get; private set; }
+    public Guid PersonId { get; private set; }
     public HouseholdRole Role { get; private set; }
 
     internal HouseholdMember(
         HouseholdRole role,
-        Guid? accountId = null)
+        Guid personId)
     {
         if (!Enum.IsDefined(role))
         {
@@ -21,22 +21,15 @@ public class HouseholdMember
                 nameof(role));
         }
 
-        if (accountId == Guid.Empty)
+        if (personId == Guid.Empty)
         {
             throw new ArgumentException(
-                "Account ID cannot be empty.",
-                nameof(accountId));
-        }
-
-        if (role == HouseholdRole.Owner && accountId is null)
-        {
-            throw new ArgumentException(
-                "An owner must be linked to an account.",
-                nameof(accountId));
+                "Person ID cannot be empty.",
+                nameof(personId));
         }
 
         MembershipId = Guid.NewGuid();
-        AccountId = accountId;
+        PersonId = personId;
         Role = role;
     }
 
@@ -47,12 +40,6 @@ public class HouseholdMember
             throw new ArgumentException(
                 "Invalid role specified.",
                 nameof(role));
-        }
-
-        if (role == HouseholdRole.Owner && AccountId is null)
-        {
-            throw new InvalidOperationException(
-                "An owner must be linked to an account.");
         }
 
         Role = role;

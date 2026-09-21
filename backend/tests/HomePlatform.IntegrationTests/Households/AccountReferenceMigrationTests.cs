@@ -48,7 +48,7 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
     public async Task Upgrade_preserves_valid_account_reference_and_enforces_foreign_key()
     {
         var accountId = Guid.NewGuid();
-        await Factory.CreateIdentityAccountAsync(accountId);
+        await InsertHistoricalAccountAsync(accountId);
         var household = new Household("Existing valid household", accountId);
         await PersistHouseholdAsync(household);
         await AssertExistingDataAsync(household, accountId);
@@ -67,7 +67,7 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
         await using (var context = CreateContext())
         {
             var failure = await Assert.ThrowsAsync<PostgresException>(() =>
-                context.Users.Where(user => user.Id == accountId).ExecuteDeleteAsync());
+                context.Database.ExecuteSqlInterpolatedAsync($"""DELETE FROM "AspNetUsers" WHERE "Id" = {accountId}"""));
             AssertAccountReferenceViolation(failure);
         }
 
@@ -78,7 +78,7 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
     public async Task Upgrade_rejects_dangling_reference_without_repairing_or_deleting_existing_data()
     {
         var ownerAccountId = Guid.NewGuid();
-        await Factory.CreateIdentityAccountAsync(ownerAccountId);
+        await InsertHistoricalAccountAsync(ownerAccountId);
         var danglingAccountId = Guid.NewGuid();
         var household = new Household("Existing dangling reference", ownerAccountId);
         Assert.True(household.AddMember(HouseholdRole.Member, danglingAccountId).IsSuccess);
@@ -89,7 +89,7 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
         await using (var context = CreateContext())
         {
             appliedBefore = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
-            Assert.False(await context.Users.AnyAsync(user => user.Id == danglingAccountId));
+            Assert.False(await AccountExistsAsync(context, danglingAccountId));
 
             var failure = await Assert.ThrowsAsync<PostgresException>(() =>
                 context.GetService<IMigrator>().MigrateAsync(AccountReferenceMigration));
@@ -101,36 +101,128 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
         await using (var verification = CreateContext())
         {
             Assert.Equal(appliedBefore, await verification.Database.GetAppliedMigrationsAsync());
-            Assert.False(await verification.Users.AnyAsync(user => user.Id == danglingAccountId));
+            Assert.False(await AccountExistsAsync(verification, danglingAccountId));
         }
 
         await AssertExistingDataAsync(household, ownerAccountId);
     }
 
+    // Historical schema tests use SQL: the current EF model intentionally no longer
+    // maps AccountId on memberships and cannot materialize a pre-Person database.
+    private async Task InsertHistoricalAccountAsync(Guid id)
+    {
+        await using var context = CreateContext();
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "AspNetUsers" ("Id", "EmailConfirmed", "PhoneNumberConfirmed",
+                "TwoFactorEnabled", "LockoutEnabled", "AccessFailedCount")
+            VALUES ({id}, false, false, false, false, 0)
+            """);
+    }
+
+    private static async Task<bool> AccountExistsAsync(HomePlatformDbContext context, Guid id)
+        => await context.Database.SqlQuery<Guid>($"""SELECT "Id" AS "Value" FROM "AspNetUsers" WHERE "Id" = {id}""").AnyAsync();
+
     private async Task PersistHouseholdAsync(Household household)
     {
         await using var context = CreateContext();
-        context.Set<Household>().Add(household);
-        await context.SaveChangesAsync();
+        await context.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "Household" ("Id", "Name", "CreatedAt", "UpdatedAt")
+            VALUES ({household.Id}, {household.Name}, {household.CreatedAt}, {household.UpdatedAt})
+            """);
+        foreach (var member in household.Members)
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO "HouseholdMember" ("MembershipId", "HouseholdId", "AccountId", "Role")
+                VALUES ({member.MembershipId}, {household.Id}, {member.PersonId}, {(int)member.Role})
+                """);
+        }
     }
 
     private async Task AssertExistingDataAsync(Household expected, Guid existingAccountId)
     {
-        await using var verification = CreateContext();
-        // Exactly the seeded Identity account remains; no replacement account was invented.
-        Assert.Equal(existingAccountId, (await verification.Users.SingleAsync()).Id);
-        var actual = await verification.Set<Household>().Include(household => household.Members).SingleAsync();
-        Assert.Equal(expected.Id, actual.Id);
-        Assert.Equal(expected.Name, actual.Name);
-        Assert.Equal(expected.Members.Count, actual.Members.Count);
-
-        foreach (var expectedMember in expected.Members)
+        await using var context = CreateContext();
+        Assert.Equal(existingAccountId, await context.Database.SqlQueryRaw<Guid>(
+            """SELECT "Id" AS "Value" FROM "AspNetUsers" """).SingleAsync());
+        var rows = await context.Database.SqlQueryRaw<HistoricalMember>(
+            """SELECT "MembershipId", "HouseholdId", "AccountId", "Role" FROM "HouseholdMember" """).ToListAsync();
+        Assert.Equal(expected.Members.Count, rows.Count);
+        foreach (var member in expected.Members)
         {
-            var actualMember = Assert.Single(actual.Members,
-                member => member.MembershipId == expectedMember.MembershipId);
-            Assert.Equal(expectedMember.AccountId, actualMember.AccountId);
-            Assert.Equal(expectedMember.Role, actualMember.Role);
+            var row = Assert.Single(rows, r => r.MembershipId == member.MembershipId);
+            Assert.Equal(expected.Id, row.HouseholdId);
+            Assert.Equal(member.PersonId, row.AccountId);
+            Assert.Equal((int)member.Role, row.Role);
         }
+    }
+
+    public sealed class HistoricalMember
+    {
+        public Guid MembershipId { get; set; }
+        public Guid HouseholdId { get; set; }
+        public Guid? AccountId { get; set; }
+        public int Role { get; set; }
+    }
+
+    [Fact]
+    public async Task Person_upgrade_preserves_linked_and_loginless_memberships_and_downgrades()
+    {
+        var accountId = Guid.NewGuid();
+        var unusedAccountId = Guid.NewGuid();
+        await InsertHistoricalAccountAsync(accountId);
+        await InsertHistoricalAccountAsync(unusedAccountId);
+        var first = new Household("Existing home", accountId);
+        var second = new Household("Second home", accountId);
+        await PersistHouseholdAsync(first);
+        await PersistHouseholdAsync(second);
+        var loginlessIds = new[] { Guid.NewGuid(), Guid.NewGuid() };
+        await using var context = CreateContext();
+        foreach (var id in loginlessIds)
+        {
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO "HouseholdMember" ("MembershipId", "HouseholdId", "AccountId", "Role")
+                VALUES ({id}, {first.Id}, NULL, {(int)HouseholdRole.Guest})
+                """);
+        }
+        await context.Database.MigrateAsync();
+        var users = await context.Users.ToListAsync();
+        Assert.Equal(2, users.Count);
+        Assert.Equal(2, users.Select(u => u.PersonId).Distinct().Count());
+        Assert.All(users, u => Assert.NotEqual(u.Id, u.PersonId));
+        var people = await context.Set<HomePlatform.Domain.Person.Person>().ToListAsync();
+        Assert.Equal(4, people.Count);
+        Assert.All(people, p => Assert.Null(p.DisplayName));
+        var members = await context.Set<HouseholdMember>().ToListAsync();
+        Assert.Equal(4, members.Count);
+        foreach (var original in new[] { first, second })
+        {
+            var owner = Assert.Single(members, m => m.MembershipId == original.Members.Single().MembershipId);
+            Assert.Equal(users.Single(u => u.Id == accountId).PersonId, owner.PersonId);
+            Assert.Equal(HouseholdRole.Owner, owner.Role);
+            Assert.Equal(original.Id, context.Entry(owner).Property<Guid>("HouseholdId").CurrentValue);
+        }
+        var loginless = members.Where(m => loginlessIds.Contains(m.MembershipId)).ToArray();
+        Assert.Equal(2, loginless.Select(m => m.PersonId).Distinct().Count());
+        Assert.All(loginless, m =>
+        {
+            Assert.Equal(HouseholdRole.Guest, m.Role);
+            Assert.Equal(first.Id, context.Entry(m).Property<Guid>("HouseholdId").CurrentValue);
+            Assert.DoesNotContain(users, u => u.PersonId == m.PersonId);
+        });
+        context.ChangeTracker.Clear();
+        await context.GetService<IMigrator>().MigrateAsync(AccountReferenceMigration);
+        var restored = await context.Database.SqlQueryRaw<HistoricalMember>(
+            """SELECT "MembershipId", "HouseholdId", "AccountId", "Role" FROM "HouseholdMember" """).ToListAsync();
+        Assert.Equal(4, restored.Count);
+        Assert.All(restored, m => Assert.Equal(loginlessIds.Contains(m.MembershipId) ? (Guid?)null : accountId, m.AccountId));
+        await context.Database.MigrateAsync();
+        Assert.Equal(4, await context.Set<HouseholdMember>().CountAsync());
+        await context.Users.Where(u => u.Id == accountId).ExecuteDeleteAsync();
+        var applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
+        var failure = await Assert.ThrowsAsync<PostgresException>(() =>
+            context.GetService<IMigrator>().MigrateAsync(AccountReferenceMigration));
+        Assert.Contains("owner Person has no account", failure.MessageText);
+        Assert.Equal(applied, await context.Database.GetAppliedMigrationsAsync());
+        Assert.Equal(4, await context.Set<HouseholdMember>().CountAsync());
     }
 
     private static void AssertAccountReferenceViolation(PostgresException failure)

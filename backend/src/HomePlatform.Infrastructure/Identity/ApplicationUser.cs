@@ -4,4 +4,5 @@ namespace HomePlatform.Infrastructure.Identity;
 
 public sealed class ApplicationUser : IdentityUser<Guid>
 {
+    public Guid PersonId { get; set; }
 }

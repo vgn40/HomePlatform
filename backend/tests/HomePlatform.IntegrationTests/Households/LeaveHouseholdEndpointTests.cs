@@ -190,7 +190,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
                     member =>
                         (
                             member.MembershipId,
-                            member.AccountId,
+                            member.PersonId,
                             member.Role))
                 .ToArray(),
             after.Members
@@ -201,7 +201,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
                     member =>
                         (
                             member.MembershipId,
-                            member.AccountId,
+                            member.PersonId,
                             member.Role))
                 .ToArray());
 
@@ -263,6 +263,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
         HouseholdRole targetRole = HouseholdRole.Member,
         HouseholdRole callerRole = HouseholdRole.Member)
     {
+        var loginlessPersonId = await _factory!.CreateLoginlessPersonAsync();
         var ownerAccountId =
             Guid.NewGuid();
 
@@ -298,7 +299,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
 
         Assert.True(
             household.AddMember(
-                HouseholdRole.Member).IsSuccess);
+                HouseholdRole.Member, loginlessPersonId).IsSuccess);
 
         await using var scope =
             _factory.Services.CreateAsyncScope();
@@ -318,17 +319,17 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
             household.Members
                 .Single(
                     member =>
-                        member.AccountId == ownerAccountId)
+                        member.PersonId == ownerAccountId)
                 .MembershipId,
             household.Members
                 .Single(
                     member =>
-                        member.AccountId == targetAccountId)
+                        member.PersonId == targetAccountId)
                 .MembershipId,
             household.Members
                 .Single(
                     member =>
-                        member.AccountId is null)
+                        member.PersonId == loginlessPersonId)
                 .MembershipId);
     }
 
@@ -389,7 +390,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
                         member =>
                             (
                                 member.MembershipId,
-                                member.AccountId,
+                                member.PersonId,
                                 member.Role))
                     .ToArray(),
                 current.Members
@@ -400,7 +401,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
                         member =>
                             (
                                 member.MembershipId,
-                                member.AccountId,
+                                member.PersonId,
                                 member.Role))
                     .ToArray());
         }

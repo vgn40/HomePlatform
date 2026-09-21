@@ -5,10 +5,10 @@ namespace HomePlatform.Domain.Tests.Household;
 public class TransferOwnershipTests
 {
     [Fact]
-    public void TransferOwnership_to_account_linked_member_succeeds_and_preserves_memberships()
+    public void TransferOwnership_to_person_linked_member_succeeds_and_preserves_memberships()
     {
-        var ownerAccountId = Guid.NewGuid();
-        var household = CreateHousehold(ownerAccountId);
+        var ownerPersonId = Guid.NewGuid();
+        var household = CreateHousehold(ownerPersonId);
         var target = AddMember(
             household,
             HouseholdRole.Member,
@@ -16,16 +16,16 @@ public class TransferOwnershipTests
 
         var owner = Assert.Single(
             household.Members,
-            member => member.AccountId == ownerAccountId);
+            member => member.PersonId == ownerPersonId);
 
         var ownerMembershipId = owner.MembershipId;
         var targetMembershipId = target.MembershipId;
-        var targetAccountId = target.AccountId;
+        var targetPersonId = target.PersonId;
         var memberCount = household.Members.Count;
 
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
-                ownerAccountId,
+                ownerPersonId,
                 targetMembershipId);
 
         Assert.True(result.IsSuccess);
@@ -41,12 +41,12 @@ public class TransferOwnershipTests
             member => member.MembershipId == targetMembershipId);
 
         Assert.Equal(
-            ownerAccountId,
-            updatedOwner.AccountId);
+            ownerPersonId,
+            updatedOwner.PersonId);
 
         Assert.Equal(
-            targetAccountId,
-            updatedTarget.AccountId);
+            targetPersonId,
+            updatedTarget.PersonId);
 
         Assert.Equal(
             HouseholdRole.Member,
@@ -58,10 +58,10 @@ public class TransferOwnershipTests
     }
 
     [Fact]
-    public void TransferOwnership_to_account_linked_guest_succeeds()
+    public void TransferOwnership_to_person_linked_guest_succeeds()
     {
-        var ownerAccountId = Guid.NewGuid();
-        var household = CreateHousehold(ownerAccountId);
+        var ownerPersonId = Guid.NewGuid();
+        var household = CreateHousehold(ownerPersonId);
 
         var target = AddMember(
             household,
@@ -70,7 +70,7 @@ public class TransferOwnershipTests
 
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
-                ownerAccountId,
+                ownerPersonId,
                 target.MembershipId);
 
         Assert.True(result.IsSuccess);
@@ -89,8 +89,8 @@ public class TransferOwnershipTests
             Assert.Single(
                 household.Members,
                 member =>
-                    member.AccountId ==
-                    ownerAccountId).Role);
+                    member.PersonId ==
+                    ownerPersonId).Role);
     }
 
     [Theory]
@@ -102,13 +102,13 @@ public class TransferOwnershipTests
         var household =
             CreateHousehold(Guid.NewGuid());
 
-        var callerAccountId =
+        var callerPersonId =
             Guid.NewGuid();
 
         AddMember(
             household,
             callerRole,
-            callerAccountId);
+            callerPersonId);
 
         var target = AddMember(
             household,
@@ -123,13 +123,13 @@ public class TransferOwnershipTests
 
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
-                callerAccountId,
+                callerPersonId,
                 target.MembershipId);
 
         Assert.False(result.IsSuccess);
 
         Assert.Equal(
-            TransferOwnershipError.CurrentAccountNotOwner,
+            TransferOwnershipError.CurrentPersonNotOwner,
             result.Error);
 
         Assert.Equal(
@@ -144,11 +144,11 @@ public class TransferOwnershipTests
     [Fact]
     public void TransferOwnership_fails_when_target_membership_does_not_exist()
     {
-        var ownerAccountId =
+        var ownerPersonId =
             Guid.NewGuid();
 
         var household =
-            CreateHousehold(ownerAccountId);
+            CreateHousehold(ownerPersonId);
 
         AddMember(
             household,
@@ -172,7 +172,7 @@ public class TransferOwnershipTests
 
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
-                ownerAccountId,
+                ownerPersonId,
                 missingMembershipId);
 
         Assert.False(result.IsSuccess);
@@ -191,46 +191,13 @@ public class TransferOwnershipTests
     }
 
     [Fact]
-    public void TransferOwnership_fails_when_target_has_no_account()
+    public void TransferOwnership_domain_does_not_depend_on_accounts()
     {
-        var ownerAccountId =
-            Guid.NewGuid();
-
-        var household =
-            CreateHousehold(ownerAccountId);
-
-        var target = AddMember(
-            household,
-            HouseholdRole.Member,
-            null);
-
-        Assert.Null(
-            target.AccountId);
-
-        var previousUpdatedAt =
-            SetEarlierUpdatedAt(household);
-
-        var before =
-            SnapshotMembers(household);
-
-        TransferOwnershipDomainResult result =
-            household.TransferOwnership(
-                ownerAccountId,
-                target.MembershipId);
-
-        Assert.False(result.IsSuccess);
-
-        Assert.Equal(
-            TransferOwnershipError.NewOwnerHasNoAccount,
-            result.Error);
-
-        Assert.Equal(
-            before,
-            SnapshotMembers(household));
-
-        Assert.Equal(
-            previousUpdatedAt,
-            household.UpdatedAt);
+        var ownerId = Guid.NewGuid();
+        var household = CreateHousehold(ownerId);
+        var target = AddMember(household, HouseholdRole.Member, Guid.NewGuid());
+        Assert.True(household.TransferOwnership(ownerId, target.MembershipId).IsSuccess);
+        Assert.Equal(HouseholdRole.Owner, target.Role);
     }
 
     [Fact]
@@ -244,14 +211,14 @@ public class TransferOwnershipTests
             HouseholdRole.Member,
             Guid.NewGuid());
 
-        var outsiderAccountId =
+        var outsiderPersonId =
             Guid.NewGuid();
 
         Assert.DoesNotContain(
             household.Members,
             member =>
-                member.AccountId ==
-                outsiderAccountId);
+                member.PersonId ==
+                outsiderPersonId);
 
         var previousUpdatedAt =
             SetEarlierUpdatedAt(household);
@@ -261,13 +228,13 @@ public class TransferOwnershipTests
 
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
-                outsiderAccountId,
+                outsiderPersonId,
                 target.MembershipId);
 
         Assert.False(result.IsSuccess);
 
         Assert.Equal(
-            TransferOwnershipError.CurrentAccountNotMember,
+            TransferOwnershipError.CurrentPersonNotMember,
             result.Error);
 
         Assert.Equal(
@@ -282,11 +249,11 @@ public class TransferOwnershipTests
     [Fact]
     public void TransferOwnership_fails_when_owner_targets_their_own_membership()
     {
-        var ownerAccountId =
+        var ownerPersonId =
             Guid.NewGuid();
 
         var household =
-            CreateHousehold(ownerAccountId);
+            CreateHousehold(ownerPersonId);
 
         var owner =
             Assert.Single(household.Members);
@@ -304,7 +271,7 @@ public class TransferOwnershipTests
 
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
-                ownerAccountId,
+                ownerPersonId,
                 owner.MembershipId);
 
         Assert.False(result.IsSuccess);
@@ -325,11 +292,11 @@ public class TransferOwnershipTests
     [Fact]
     public void TransferOwnership_updates_household_updated_at_on_success()
     {
-        var ownerAccountId =
+        var ownerPersonId =
             Guid.NewGuid();
 
         var household =
-            CreateHousehold(ownerAccountId);
+            CreateHousehold(ownerPersonId);
 
         var target = AddMember(
             household,
@@ -369,7 +336,7 @@ public class TransferOwnershipTests
 
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
-                ownerAccountId,
+                ownerPersonId,
                 target.MembershipId);
 
         var afterTransfer =
@@ -395,27 +362,27 @@ public class TransferOwnershipTests
     [InlineData(
         HouseholdRole.Member,
         false,
-        TransferOwnershipError.CurrentAccountNotOwner)]
+        TransferOwnershipError.CurrentPersonNotOwner)]
     [InlineData(
         HouseholdRole.Member,
         true,
-        TransferOwnershipError.CurrentAccountNotOwner)]
+        TransferOwnershipError.CurrentPersonNotOwner)]
     [InlineData(
         HouseholdRole.Guest,
         false,
-        TransferOwnershipError.CurrentAccountNotOwner)]
+        TransferOwnershipError.CurrentPersonNotOwner)]
     [InlineData(
         HouseholdRole.Guest,
         true,
-        TransferOwnershipError.CurrentAccountNotOwner)]
+        TransferOwnershipError.CurrentPersonNotOwner)]
     [InlineData(
         null,
         false,
-        TransferOwnershipError.CurrentAccountNotMember)]
+        TransferOwnershipError.CurrentPersonNotMember)]
     [InlineData(
         null,
         true,
-        TransferOwnershipError.CurrentAccountNotMember)]
+        TransferOwnershipError.CurrentPersonNotMember)]
     public void TransferOwnership_checks_caller_authorization_before_invalid_target(
         HouseholdRole? callerRole,
         bool loginlessTarget,
@@ -424,7 +391,7 @@ public class TransferOwnershipTests
         var household =
             CreateHousehold(Guid.NewGuid());
 
-        var callerAccountId =
+        var callerPersonId =
             Guid.NewGuid();
 
         if (callerRole is HouseholdRole role)
@@ -432,7 +399,7 @@ public class TransferOwnershipTests
             AddMember(
                 household,
                 role,
-                callerAccountId);
+                callerPersonId);
         }
 
         var targetId =
@@ -451,7 +418,7 @@ public class TransferOwnershipTests
 
         var result =
             household.TransferOwnership(
-                callerAccountId,
+                callerPersonId,
                 targetId);
 
         Assert.False(
@@ -504,22 +471,23 @@ public class TransferOwnershipTests
     }
 
     private static Domain.Household.Household CreateHousehold(
-        Guid ownerAccountId)
+        Guid ownerPersonId)
     {
         return new Domain.Household.Household(
             "Mit hjem",
-            ownerAccountId);
+            ownerPersonId);
     }
 
     private static HouseholdMember AddMember(
         Domain.Household.Household household,
         HouseholdRole role,
-        Guid? accountId)
+        Guid? personId)
     {
+        personId ??= Guid.NewGuid();
         var result =
             household.AddMember(
                 role,
-                accountId);
+                personId.Value);
 
         Assert.True(
             result.IsSuccess);
@@ -527,13 +495,13 @@ public class TransferOwnershipTests
         return Assert.Single(
             household.Members,
             member =>
-                member.AccountId ==
-                accountId);
+                member.PersonId ==
+                personId.Value);
     }
 
     private static (
         Guid MembershipId,
-        Guid? AccountId,
+        Guid PersonId,
         HouseholdRole Role
     )[] SnapshotMembers(
         Domain.Household.Household household)
@@ -546,7 +514,7 @@ public class TransferOwnershipTests
                 member =>
                     (
                         member.MembershipId,
-                        member.AccountId,
+                        member.PersonId,
                         member.Role
                     ))
             .ToArray();

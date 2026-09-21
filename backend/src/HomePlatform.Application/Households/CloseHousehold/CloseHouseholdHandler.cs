@@ -6,14 +6,14 @@ namespace HomePlatform.Application.Households.CloseHousehold;
 public sealed class CloseHouseholdHandler
 {
     private readonly IHouseholdRepository _householdRepository;
-    private readonly ICurrentAccount _currentAccount;
+    private readonly ICurrentPerson _currentPerson;
 
     public CloseHouseholdHandler(
         IHouseholdRepository householdRepository,
-        ICurrentAccount currentAccount)
+        ICurrentPerson currentPerson)
     {
         _householdRepository = householdRepository;
-        _currentAccount = currentAccount;
+        _currentPerson = currentPerson;
     }
 
     public async Task<CloseHouseholdResult> Handle(
@@ -22,13 +22,8 @@ public sealed class CloseHouseholdHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        Guid accountId;
-
-        try
-        {
-            accountId = _currentAccount.AccountId;
-        }
-        catch (UnauthorizedAccessException)
+        var personId = await _currentPerson.GetPersonIdAsync(cancellationToken);
+        if (personId is null)
         {
             return CloseHouseholdResult.Unauthenticated();
         }
@@ -42,16 +37,16 @@ public sealed class CloseHouseholdHandler
             return CloseHouseholdResult.NotFound();
         }
 
-        var closeResult = household.Close(accountId);
+        var closeResult = household.Close(personId.Value);
 
         if (!closeResult.IsSuccess)
         {
             return closeResult.Error switch
             {
-                CloseHouseholdError.CurrentAccountNotMember
+                CloseHouseholdError.CurrentPersonNotMember
                     => CloseHouseholdResult.NotFound(),
 
-                CloseHouseholdError.CurrentAccountNotOwner
+                CloseHouseholdError.CurrentPersonNotOwner
                     => CloseHouseholdResult.Forbidden(),
 
                 _ => throw new InvalidOperationException(

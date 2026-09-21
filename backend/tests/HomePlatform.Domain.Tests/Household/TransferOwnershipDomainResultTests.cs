@@ -14,9 +14,8 @@ public sealed class TransferOwnershipDomainResultTests
     }
 
     [Theory]
-    [InlineData(TransferOwnershipError.CurrentAccountNotOwner)]
+    [InlineData(TransferOwnershipError.CurrentPersonNotOwner)]
     [InlineData(TransferOwnershipError.NewOwnerNotFound)]
-    [InlineData(TransferOwnershipError.NewOwnerHasNoAccount)]
     [InlineData(TransferOwnershipError.CannotTransferToSelf)]
     public void Failure_preserves_exact_error(TransferOwnershipError error)
     {

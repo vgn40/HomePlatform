@@ -5,14 +5,14 @@ namespace HomePlatform.Application.Households.CreateHousehold;
 public sealed class CreateHouseholdHandler
 {
     private readonly IHouseholdRepository _householdRepository;
-    private readonly ICurrentAccount _currentAccount;
+    private readonly ICurrentPerson _currentPerson;
 
     public CreateHouseholdHandler(
         IHouseholdRepository householdRepository,
-        ICurrentAccount currentAccount)
+        ICurrentPerson currentPerson)
     {
         _householdRepository = householdRepository;
-        _currentAccount = currentAccount;
+        _currentPerson = currentPerson;
     }
 
     public async Task<CreateHouseholdResult> Handle(
@@ -21,13 +21,8 @@ public sealed class CreateHouseholdHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        Guid accountId;
-
-        try
-        {
-            accountId = _currentAccount.AccountId;
-        }
-        catch (UnauthorizedAccessException)
+        var personId = await _currentPerson.GetPersonIdAsync(cancellationToken);
+        if (personId is null)
         {
             return CreateHouseholdResult.Unauthenticated();
         }
@@ -38,7 +33,7 @@ public sealed class CreateHouseholdHandler
         {
             household = new Household(
                 command.Name,
-                accountId);
+                personId.Value);
         }
         catch (ArgumentException exception)
         {

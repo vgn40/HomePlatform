@@ -89,7 +89,8 @@ public sealed class AccountAuthenticationTests : IAsyncLifetime
         Assert.Equal("Mit hjem", household.Name);
         var owner = Assert.Single(household.Members);
         Assert.Equal(HouseholdRole.Owner, owner.Role);
-        Assert.Equal(accountId, owner.AccountId);
+        Assert.Equal((await dbContext.Users.SingleAsync(user => user.Id == accountId)).PersonId, owner.PersonId);
+        Assert.NotEqual(accountId, owner.PersonId);
     }
 
     [Theory]

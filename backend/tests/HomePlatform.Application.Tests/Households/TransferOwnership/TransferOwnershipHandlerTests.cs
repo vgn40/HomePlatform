@@ -7,13 +7,14 @@ namespace HomePlatform.Application.Tests.Households.TransferOwnership;
 
 public sealed class TransferOwnershipHandlerTests
 {
+    private static readonly Guid LoginlessPersonId = Guid.NewGuid();
     [Fact]
     public async Task Handle_with_unauthenticated_account_does_not_read_or_update()
     {
         var repository = new RecordingHouseholdRepository();
         var handler = new TransferOwnershipHandler(
             repository,
-            new UnauthenticatedCurrentAccount());
+            new FakeCurrentPerson(null), new FakeAccountPersonLookup());
 
         var result = await handler.Handle(
             new TransferOwnershipCommand(
@@ -95,12 +96,12 @@ public sealed class TransferOwnershipHandlerTests
             "Mit hjem",
             Guid.NewGuid());
 
-        var callerAccountId = Guid.NewGuid();
+        var callerPersonId = Guid.NewGuid();
 
         AddMember(
             household,
             callerRole,
-            callerAccountId);
+            callerPersonId);
 
         var target = AddMember(
             household,
@@ -112,7 +113,7 @@ public sealed class TransferOwnershipHandlerTests
 
         var handler = CreateHandler(
             repository,
-            callerAccountId);
+            callerPersonId);
 
         var before = CaptureState(household);
 
@@ -136,11 +137,11 @@ public sealed class TransferOwnershipHandlerTests
     public async Task Handle_with_invalid_target_leaves_aggregate_unchanged_without_update(
         string targetKind)
     {
-        var ownerAccountId = Guid.NewGuid();
+        var ownerPersonId = Guid.NewGuid();
 
         var household = new Household(
             "Mit hjem",
-            ownerAccountId);
+            ownerPersonId);
 
         var owner = Assert.Single(household.Members);
 
@@ -168,7 +169,7 @@ public sealed class TransferOwnershipHandlerTests
 
         var handler = CreateHandler(
             repository,
-            ownerAccountId);
+            ownerPersonId);
 
         var before = CaptureState(household);
 
@@ -191,11 +192,11 @@ public sealed class TransferOwnershipHandlerTests
     public async Task Handle_transfers_ownership_and_updates_same_aggregate_once(
         HouseholdRole targetRole)
     {
-        var ownerAccountId = Guid.NewGuid();
+        var ownerPersonId = Guid.NewGuid();
 
         var household = new Household(
             "Mit hjem",
-            ownerAccountId);
+            ownerPersonId);
 
         var owner = Assert.Single(household.Members);
 
@@ -209,7 +210,7 @@ public sealed class TransferOwnershipHandlerTests
 
         var handler = CreateHandler(
             repository,
-            ownerAccountId);
+            ownerPersonId);
 
         TransferOwnershipResult result =
             await handler.Handle(
@@ -251,11 +252,11 @@ public sealed class TransferOwnershipHandlerTests
     [Fact]
     public async Task Handle_forwards_cancellation_token_to_read_and_update()
     {
-        var ownerAccountId = Guid.NewGuid();
+        var ownerPersonId = Guid.NewGuid();
 
         var household = new Household(
             "Mit hjem",
-            ownerAccountId);
+            ownerPersonId);
 
         var target = AddMember(
             household,
@@ -267,7 +268,7 @@ public sealed class TransferOwnershipHandlerTests
 
         var handler = CreateHandler(
             repository,
-            ownerAccountId);
+            ownerPersonId);
 
         using var cancellationTokenSource =
             new CancellationTokenSource();
@@ -303,11 +304,11 @@ public sealed class TransferOwnershipHandlerTests
         bool failOnUpdate,
         bool unauthorized)
     {
-        var ownerAccountId = Guid.NewGuid();
+        var ownerPersonId = Guid.NewGuid();
 
         var household = new Household(
             "Mit hjem",
-            ownerAccountId);
+            ownerPersonId);
 
         var target = AddMember(
             household,
@@ -331,7 +332,7 @@ public sealed class TransferOwnershipHandlerTests
 
         var handler = CreateHandler(
             repository,
-            ownerAccountId);
+            ownerPersonId);
 
         var actual = await Record.ExceptionAsync(
             () => handler.Handle(
@@ -377,12 +378,12 @@ public sealed class TransferOwnershipHandlerTests
             "Mit hjem",
             Guid.NewGuid());
 
-        var callerAccountId = Guid.NewGuid();
+        var callerPersonId = Guid.NewGuid();
 
         AddMember(
             household,
             callerRole,
-            callerAccountId);
+            callerPersonId);
 
         var targetId = loginlessTarget
             ? AddMember(
@@ -396,7 +397,7 @@ public sealed class TransferOwnershipHandlerTests
 
         var handler = CreateHandler(
             repository,
-            callerAccountId);
+            callerPersonId);
 
         var before = CaptureState(household);
 
@@ -424,7 +425,7 @@ public sealed class TransferOwnershipHandlerTests
             "Mit hjem",
             Guid.NewGuid());
 
-        var callerAccountId = Guid.NewGuid();
+        var callerPersonId = Guid.NewGuid();
 
         var targetId = loginlessTarget
             ? AddMember(
@@ -438,7 +439,7 @@ public sealed class TransferOwnershipHandlerTests
 
         var handler = CreateHandler(
             repository,
-            callerAccountId);
+            callerPersonId);
 
         var before = CaptureState(household);
 
@@ -458,24 +459,25 @@ public sealed class TransferOwnershipHandlerTests
 
     private static TransferOwnershipHandler CreateHandler(
         RecordingHouseholdRepository repository,
-        Guid accountId)
+        Guid personId)
         => new(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId), new FakeAccountPersonLookup());
 
     private static HouseholdMember AddMember(
         Household household,
         HouseholdRole role,
-        Guid? accountId)
+        Guid? personId)
     {
+        personId ??= LoginlessPersonId;
         Assert.True(
             household.AddMember(
                 role,
-                accountId).IsSuccess);
+                personId.Value).IsSuccess);
 
         return Assert.Single(
             household.Members,
-            member => member.AccountId == accountId);
+            member => member.PersonId == personId);
     }
 
     private static (
@@ -485,7 +487,7 @@ public sealed class TransferOwnershipHandlerTests
         DateTime UpdatedAt,
         (
             Guid MembershipId,
-            Guid? AccountId,
+            Guid PersonId,
             HouseholdRole Role
         )[] Members)
         CaptureState(Household household)
@@ -502,7 +504,7 @@ public sealed class TransferOwnershipHandlerTests
                     member =>
                         (
                             member.MembershipId,
-                            member.AccountId,
+                            member.PersonId,
                             member.Role))
                 .ToArray());
 
@@ -515,7 +517,7 @@ public sealed class TransferOwnershipHandlerTests
             DateTime UpdatedAt,
             (
                 Guid MembershipId,
-                Guid? AccountId,
+                Guid PersonId,
                 HouseholdRole Role
             )[] Members
         ) before)
@@ -535,19 +537,19 @@ public sealed class TransferOwnershipHandlerTests
             after.Members);
     }
 
-    private sealed class FakeCurrentAccount(
-        Guid accountId)
-        : ICurrentAccount
+    private sealed class FakeAccountPersonLookup : IAccountPersonLookup
     {
-        public Guid AccountId { get; } =
-            accountId;
+        public Task<Guid?> GetPersonIdAsync(Guid personId, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("The handler must use ICurrentPerson.");
+
+        public Task<bool> HasAccountForPersonAsync(Guid personId, CancellationToken cancellationToken = default)
+            => Task.FromResult(personId != LoginlessPersonId);
     }
 
-    private sealed class UnauthenticatedCurrentAccount
-        : ICurrentAccount
+    private sealed class FakeCurrentPerson(Guid? personId) : ICurrentPerson
     {
-        public Guid AccountId =>
-            throw new UnauthorizedAccessException();
+        public Task<Guid?> GetPersonIdAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(personId);
     }
 
     private sealed class RecordingHouseholdRepository(

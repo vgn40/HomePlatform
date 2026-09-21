@@ -15,7 +15,7 @@ public class HouseholdTests
     }
 
     [Fact]
-    public void Constructor_throws_when_owner_account_id_is_empty()
+    public void Constructor_throws_when_owner_person_id_is_empty()
     {
         Assert.Throws<ArgumentException>(() =>
             new Domain.Household.Household("Mit hjem", Guid.Empty));
@@ -98,15 +98,15 @@ public class HouseholdTests
     [Fact]
     public void New_household_contains_exactly_one_owner_membership()
     {
-        var ownerAccountId = Guid.NewGuid();
+        var ownerPersonId = Guid.NewGuid();
 
         var household = new Domain.Household.Household(
             "Mit hjem",
-            ownerAccountId);
+            ownerPersonId);
 
         var owner = Assert.Single(household.Members);
         Assert.NotEqual(Guid.Empty, owner.MembershipId);
-        Assert.Equal(ownerAccountId, owner.AccountId);
+        Assert.Equal(ownerPersonId, owner.PersonId);
         Assert.Equal(HouseholdRole.Owner, owner.Role);
     }
 

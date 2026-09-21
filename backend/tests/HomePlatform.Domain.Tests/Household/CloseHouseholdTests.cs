@@ -6,11 +6,11 @@ public sealed class CloseHouseholdTests
 {
     [Theory]
     [InlineData("owner", true, null)]
-    [InlineData("member", false, CloseHouseholdError.CurrentAccountNotOwner)]
-    [InlineData("guest", false, CloseHouseholdError.CurrentAccountNotOwner)]
-    [InlineData("nonmember", false, CloseHouseholdError.CurrentAccountNotMember)]
-    [InlineData("loginless", false, CloseHouseholdError.CurrentAccountNotMember)]
-    [InlineData("empty-account", false, CloseHouseholdError.CurrentAccountNotMember)]
+    [InlineData("member", false, CloseHouseholdError.CurrentPersonNotOwner)]
+    [InlineData("guest", false, CloseHouseholdError.CurrentPersonNotOwner)]
+    [InlineData("nonmember", false, CloseHouseholdError.CurrentPersonNotMember)]
+    [InlineData("loginless", false, CloseHouseholdError.CurrentPersonNotMember)]
+    [InlineData("empty-person", false, CloseHouseholdError.CurrentPersonNotMember)]
     public void Close_authorizes_only_owner_and_preserves_entire_aggregate(
         string caller,
         bool allowed,
@@ -37,11 +37,11 @@ public sealed class CloseHouseholdTests
 
         Assert.True(
             household.AddMember(
-                HouseholdRole.Member).IsSuccess);
+                HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
 
         Assert.True(
             household.AddMember(
-                HouseholdRole.Guest).IsSuccess);
+                HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
         var earlier =
             new DateTime(
@@ -77,32 +77,32 @@ public sealed class CloseHouseholdTests
                     member =>
                         (
                             member.MembershipId,
-                            member.AccountId,
+                            member.PersonId,
                             member.Role
                         ))
                 .ToArray();
 
-        var accountId = caller switch
+        var personId = caller switch
         {
             "owner" => ownerId,
             "member" => memberId,
             "guest" => guestId,
 
-            // Loginless memberships have no AccountId,
-            // so their MembershipId cannot authorize an account request.
+            // Loginless memberships have no PersonId,
+            // so their MembershipId cannot authorize an person request.
             "loginless" => household.Members
                 .First(
                     member =>
-                        member.AccountId is null)
+                        member.Role != HouseholdRole.Owner)
                 .MembershipId,
 
-            "empty-account" => Guid.Empty,
+            "empty-person" => Guid.Empty,
 
             _ => Guid.NewGuid()
         };
 
         var result =
-            household.Close(accountId);
+            household.Close(personId);
 
         Assert.Equal(
             allowed,
@@ -139,7 +139,7 @@ public sealed class CloseHouseholdTests
                     member =>
                         (
                             member.MembershipId,
-                            member.AccountId,
+                            member.PersonId,
                             member.Role
                         ))
                 .ToArray());
@@ -159,8 +159,8 @@ public sealed class CloseHouseholdTests
     }
 
     [Theory]
-    [InlineData(CloseHouseholdError.CurrentAccountNotOwner)]
-    [InlineData(CloseHouseholdError.CurrentAccountNotMember)]
+    [InlineData(CloseHouseholdError.CurrentPersonNotOwner)]
+    [InlineData(CloseHouseholdError.CurrentPersonNotMember)]
     public void Failure_preserves_exact_error(
         CloseHouseholdError error)
     {

@@ -2,6 +2,6 @@ namespace HomePlatform.Domain.Household;
 
 public enum LeaveHouseholdError
 {
-    CurrentAccountNotMember,
+    CurrentPersonNotMember,
     OwnerCannotLeave
 }

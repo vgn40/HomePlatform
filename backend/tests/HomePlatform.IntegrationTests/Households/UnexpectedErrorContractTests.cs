@@ -1,3 +1,4 @@
+using HomePlatform.Application.Identity;
 using System.Net;
 using System.Net.Http.Json;
 using HomePlatform.Application.Households;
@@ -21,6 +22,8 @@ public sealed class UnexpectedErrorContractTests
             "Username=homeplatform;Password=homeplatform-dev",
             services =>
             {
+                services.RemoveAll<ICurrentPerson>();
+                services.AddSingleton<ICurrentPerson>(new CurrentPerson());
                 services.RemoveAll<IHouseholdRepository>();
                 services.AddSingleton<IHouseholdRepository>(repository);
             });
@@ -68,6 +71,12 @@ public sealed class UnexpectedErrorContractTests
                 body,
                 StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    private sealed class CurrentPerson : ICurrentPerson
+    {
+        public Task<Guid?> GetPersonIdAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<Guid?>(Guid.NewGuid());
     }
 
     private sealed class ThrowingHouseholdRepository

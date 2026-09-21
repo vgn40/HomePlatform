@@ -6,14 +6,14 @@ namespace HomePlatform.Application.Households.LeaveHousehold;
 public sealed class LeaveHouseholdHandler
 {
     private readonly IHouseholdRepository _householdRepository;
-    private readonly ICurrentAccount _currentAccount;
+    private readonly ICurrentPerson _currentPerson;
 
     public LeaveHouseholdHandler(
         IHouseholdRepository householdRepository,
-        ICurrentAccount currentAccount)
+        ICurrentPerson currentPerson)
     {
         _householdRepository = householdRepository;
-        _currentAccount = currentAccount;
+        _currentPerson = currentPerson;
     }
 
     public async Task<LeaveHouseholdResult> Handle(
@@ -22,13 +22,8 @@ public sealed class LeaveHouseholdHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        Guid accountId;
-
-        try
-        {
-            accountId = _currentAccount.AccountId;
-        }
-        catch (UnauthorizedAccessException)
+        var personId = await _currentPerson.GetPersonIdAsync(cancellationToken);
+        if (personId is null)
         {
             return LeaveHouseholdResult.Unauthenticated();
         }
@@ -42,13 +37,13 @@ public sealed class LeaveHouseholdHandler
             return LeaveHouseholdResult.NotFound();
         }
 
-        var leaveResult = household.Leave(accountId);
+        var leaveResult = household.Leave(personId.Value);
 
         if (!leaveResult.IsSuccess)
         {
             return leaveResult.Error switch
             {
-                LeaveHouseholdError.CurrentAccountNotMember
+                LeaveHouseholdError.CurrentPersonNotMember
                     => LeaveHouseholdResult.NotFound(),
 
                 LeaveHouseholdError.OwnerCannotLeave

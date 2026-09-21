@@ -6,14 +6,17 @@ namespace HomePlatform.Application.Households.TransferOwnership;
 public sealed class TransferOwnershipHandler
 {
     private readonly IHouseholdRepository _householdRepository;
-    private readonly ICurrentAccount _currentAccount;
+    private readonly ICurrentPerson _currentPerson;
+    private readonly IAccountPersonLookup _accountPersonLookup;
 
     public TransferOwnershipHandler(
         IHouseholdRepository householdRepository,
-        ICurrentAccount currentAccount)
+        ICurrentPerson currentPerson,
+        IAccountPersonLookup accountPersonLookup)
     {
         _householdRepository = householdRepository;
-        _currentAccount = currentAccount;
+        _currentPerson = currentPerson;
+        _accountPersonLookup = accountPersonLookup;
     }
 
     public async Task<TransferOwnershipResult> Handle(
@@ -22,13 +25,8 @@ public sealed class TransferOwnershipHandler
     {
         ArgumentNullException.ThrowIfNull(command);
 
-        Guid accountId;
-
-        try
-        {
-            accountId = _currentAccount.AccountId;
-        }
-        catch (UnauthorizedAccessException)
+        var personId = await _currentPerson.GetPersonIdAsync(cancellationToken);
+        if (personId is null)
         {
             return TransferOwnershipResult.Unauthenticated();
         }
@@ -42,27 +40,23 @@ public sealed class TransferOwnershipHandler
             return TransferOwnershipResult.NotFound();
         }
 
-        var transferResult = household.TransferOwnership(
-            accountId,
+        var transferResult = household.ValidateTransferOwnership(
+            personId.Value,
             command.NewOwnerMembershipId);
 
         if (!transferResult.IsSuccess)
         {
             return transferResult.Error switch
             {
-                TransferOwnershipError.CurrentAccountNotMember
+                TransferOwnershipError.CurrentPersonNotMember
                     => TransferOwnershipResult.NotFound(),
 
-                TransferOwnershipError.CurrentAccountNotOwner
+                TransferOwnershipError.CurrentPersonNotOwner
                     => TransferOwnershipResult.Forbidden(),
 
                 TransferOwnershipError.NewOwnerNotFound
                     => TransferOwnershipResult.Invalid(
                         "New owner is not a member of this household."),
-
-                TransferOwnershipError.NewOwnerHasNoAccount
-                    => TransferOwnershipResult.Invalid(
-                        "New owner must be linked to an account."),
 
                 TransferOwnershipError.CannotTransferToSelf
                     => TransferOwnershipResult.Invalid(
@@ -72,6 +66,14 @@ public sealed class TransferOwnershipHandler
                     "Unexpected TransferOwnership domain error.")
             };
         }
+
+        var target = household.Members.Single(member => member.MembershipId == command.NewOwnerMembershipId);
+        if (!await _accountPersonLookup.HasAccountForPersonAsync(target.PersonId, cancellationToken))
+        {
+            return TransferOwnershipResult.Invalid("New owner must be linked to an account.");
+        }
+
+        household.TransferOwnership(personId.Value, command.NewOwnerMembershipId);
 
         await _householdRepository.UpdateAsync(
             household,

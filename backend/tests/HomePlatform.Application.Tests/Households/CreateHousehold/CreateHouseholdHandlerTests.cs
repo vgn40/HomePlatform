@@ -8,13 +8,24 @@ namespace HomePlatform.Application.Tests.Households.CreateHousehold;
 public sealed class CreateHouseholdHandlerTests
 {
     [Fact]
+    public async Task Handle_with_unresolved_current_person_does_not_create_household()
+    {
+        var repository = new RecordingHouseholdRepository();
+        var handler = new CreateHouseholdHandler(repository,
+            new FakeCurrentPerson(null));
+        var result = await handler.Handle(new CreateHouseholdCommand("Home"));
+        Assert.Equal(CreateHouseholdOutcome.Unauthenticated, result.Outcome);
+        Assert.Empty(repository.AddedHouseholds);
+    }
+
+    [Fact]
     public async Task Handle_creates_and_adds_household_and_returns_its_identity()
     {
-        var accountId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
         var repository = new RecordingHouseholdRepository();
         var handler = new CreateHouseholdHandler(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId));
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await handler.Handle(
@@ -25,7 +36,7 @@ public sealed class CreateHouseholdHandlerTests
         var owner = Assert.Single(household.Members);
         Assert.Equal(CreateHouseholdOutcome.Success, result.Outcome);
         Assert.Equal("Mit hjem", household.Name);
-        Assert.Equal(accountId, owner.AccountId);
+        Assert.Equal(personId, owner.PersonId);
         Assert.Equal(HouseholdRole.Owner, owner.Role);
         Assert.Equal(household.Id, result.HouseholdId);
         Assert.Equal(household.Name, result.Name);
@@ -68,12 +79,12 @@ public sealed class CreateHouseholdHandlerTests
     }
 
     [Fact]
-    public async Task Handle_with_unauthenticated_current_account_returns_unauthenticated_without_repository_write()
+    public async Task Handle_with_unauthenticated_current_person_returns_unauthenticated_without_repository_write()
     {
         var repository = new RecordingHouseholdRepository();
         var handler = new CreateHouseholdHandler(
             repository,
-            new UnauthenticatedCurrentAccount());
+            new FakeCurrentPerson(null));
 
         var result = await handler.Handle(
             new CreateHouseholdCommand("Mit hjem"));
@@ -104,17 +115,13 @@ public sealed class CreateHouseholdHandlerTests
     {
         return new CreateHouseholdHandler(
             repository,
-            new FakeCurrentAccount(Guid.NewGuid()));
+            new FakeCurrentPerson(Guid.NewGuid()));
     }
 
-    private sealed class FakeCurrentAccount(Guid accountId) : ICurrentAccount
+    private sealed class FakeCurrentPerson(Guid? personId) : ICurrentPerson
     {
-        public Guid AccountId { get; } = accountId;
-    }
-
-    private sealed class UnauthenticatedCurrentAccount : ICurrentAccount
-    {
-        public Guid AccountId => throw new UnauthorizedAccessException();
+        public Task<Guid?> GetPersonIdAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(personId);
     }
 
     private sealed class RecordingHouseholdRepository(

@@ -14,7 +14,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         var handler = new LeaveHouseholdHandler(
             repository,
-            new UnauthenticatedCurrentAccount());
+            new FakeCurrentPerson(null));
 
         var result = await handler.Handle(
             new LeaveHouseholdCommand(Guid.NewGuid()));
@@ -35,7 +35,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         var handler = new LeaveHouseholdHandler(
             repository,
-            new FakeCurrentAccount(Guid.NewGuid()));
+            new FakeCurrentPerson(Guid.NewGuid()));
 
         var result = await handler.Handle(
             new LeaveHouseholdCommand(id));
@@ -71,7 +71,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         var handler = new LeaveHouseholdHandler(
             repository,
-            new FakeCurrentAccount(Guid.NewGuid()));
+            new FakeCurrentPerson(Guid.NewGuid()));
 
         var result = await handler.Handle(
             new LeaveHouseholdCommand(
@@ -110,7 +110,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         var handler = new LeaveHouseholdHandler(
             repository,
-            new FakeCurrentAccount(ownerId));
+            new FakeCurrentPerson(ownerId));
 
         var result = await handler.Handle(
             new LeaveHouseholdCommand(
@@ -142,17 +142,17 @@ public sealed class LeaveHouseholdHandlerTests
             "Home",
             Guid.NewGuid());
 
-        var accountId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
 
         Assert.True(
             household.AddMember(
                 role,
-                accountId).IsSuccess);
+                personId).IsSuccess);
 
         var targetId = household.Members
             .Single(
                 member =>
-                    member.AccountId == accountId)
+                    member.PersonId == personId)
             .MembershipId;
 
         var repository =
@@ -160,7 +160,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         var handler = new LeaveHouseholdHandler(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId));
 
         using var cancellation =
             new CancellationTokenSource();
@@ -220,7 +220,7 @@ public sealed class LeaveHouseholdHandlerTests
         bool failOnUpdate,
         bool unauthorized)
     {
-        var accountId = Guid.NewGuid();
+        var personId = Guid.NewGuid();
 
         var household = new Household(
             "Home",
@@ -229,7 +229,7 @@ public sealed class LeaveHouseholdHandlerTests
         Assert.True(
             household.AddMember(
                 HouseholdRole.Member,
-                accountId).IsSuccess);
+                personId).IsSuccess);
 
         Exception expected = unauthorized
             ? new UnauthorizedAccessException(
@@ -249,7 +249,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         var handler = new LeaveHouseholdHandler(
             repository,
-            new FakeCurrentAccount(accountId));
+            new FakeCurrentPerson(personId));
 
         var actual =
             await Record.ExceptionAsync(
@@ -278,7 +278,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         var handler = new LeaveHouseholdHandler(
             repository,
-            new FakeCurrentAccount(Guid.NewGuid()));
+            new FakeCurrentPerson(Guid.NewGuid()));
 
         await Assert.ThrowsAsync<ArgumentNullException>(
             () => handler.Handle(null!));
@@ -294,7 +294,7 @@ public sealed class LeaveHouseholdHandlerTests
         DateTime UpdatedAt,
         (
             Guid MembershipId,
-            Guid? AccountId,
+            Guid PersonId,
             HouseholdRole Role
         )[] Members)
         CaptureState(Household household)
@@ -311,7 +311,7 @@ public sealed class LeaveHouseholdHandlerTests
                     member =>
                         (
                             member.MembershipId,
-                            member.AccountId,
+                            member.PersonId,
                             member.Role))
                 .ToArray());
 
@@ -324,7 +324,7 @@ public sealed class LeaveHouseholdHandlerTests
             DateTime UpdatedAt,
             (
                 Guid MembershipId,
-                Guid? AccountId,
+                Guid PersonId,
                 HouseholdRole Role
             )[] Members
         ) before)
@@ -352,19 +352,10 @@ public sealed class LeaveHouseholdHandlerTests
             after.Members);
     }
 
-    private sealed class FakeCurrentAccount(
-        Guid accountId)
-        : ICurrentAccount
+    private sealed class FakeCurrentPerson(Guid? personId) : ICurrentPerson
     {
-        public Guid AccountId { get; } =
-            accountId;
-    }
-
-    private sealed class UnauthenticatedCurrentAccount
-        : ICurrentAccount
-    {
-        public Guid AccountId =>
-            throw new UnauthorizedAccessException();
+        public Task<Guid?> GetPersonIdAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(personId);
     }
 
     private sealed class RecordingHouseholdRepository(

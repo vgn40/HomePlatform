@@ -43,7 +43,7 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         var expectedHouseholdId = household.Id;
         var expectedName = household.Name;
         var expectedMembershipId = owner.MembershipId;
-        var expectedOwnerAccountId = owner.AccountId;
+        var expectedOwnerAccountId = owner.PersonId;
         var expectedOwnerRole = owner.Role;
 
         await using (var writeContext = CreateContext())
@@ -62,7 +62,7 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
 
         var reloadedOwner = Assert.Single(reloaded.Members);
         Assert.Equal(expectedMembershipId, reloadedOwner.MembershipId);
-        Assert.Equal(expectedOwnerAccountId, reloadedOwner.AccountId);
+        Assert.Equal(expectedOwnerAccountId, reloadedOwner.PersonId);
         Assert.Equal(expectedOwnerRole, reloadedOwner.Role);
         Assert.Equal(HouseholdRole.Owner, reloadedOwner.Role);
     }
@@ -80,12 +80,12 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         var household = new Household("Ownership transfer", ownerAccountId);
         var ownerMembershipId = Assert.Single(household.Members).MembershipId;
         Assert.True(household.AddMember(targetRole, targetAccountId).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest).IsSuccess);
+        Assert.True(household.AddMember(HouseholdRole.Guest, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
         var targetMembershipId = Assert.Single(household.Members,
-            member => member.AccountId == targetAccountId).MembershipId;
+            member => member.PersonId == targetAccountId).MembershipId;
         var expectedMemberships = household.Members
             .OrderBy(member => member.MembershipId)
-            .Select(member => (member.MembershipId, member.AccountId))
+            .Select(member => (member.MembershipId, member.PersonId))
             .ToArray();
 
         await using (var setupContext = CreateContext())
@@ -116,14 +116,14 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         Assert.Equal(expectedMemberships.Length, reloaded.Members.Count);
         Assert.Equal(expectedMemberships, reloaded.Members
             .OrderBy(member => member.MembershipId)
-            .Select(member => (member.MembershipId, member.AccountId))
+            .Select(member => (member.MembershipId, member.PersonId))
             .ToArray());
         Assert.Equal(HouseholdRole.Member, Assert.Single(reloaded.Members,
             member => member.MembershipId == ownerMembershipId).Role);
         Assert.Equal(HouseholdRole.Owner, Assert.Single(reloaded.Members,
             member => member.MembershipId == targetMembershipId).Role);
         Assert.Equal(HouseholdRole.Guest, Assert.Single(reloaded.Members,
-            member => member.AccountId is null).Role);
+            member => member.PersonId != ownerAccountId && member.PersonId != targetAccountId).Role);
     }
 
     [Fact]
@@ -253,8 +253,8 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         await Factory.CreateIdentityAccountAsync(ownerAccountId);
         var household = new Household("Test household", ownerAccountId);
 
-        Assert.True(household.AddMember(HouseholdRole.Member).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Member).IsSuccess);
+        Assert.True(household.AddMember(HouseholdRole.Member, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
+        Assert.True(household.AddMember(HouseholdRole.Member, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
 
         await using var context = CreateContext();
         context.Set<Household>().Add(household);
@@ -264,7 +264,7 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
 
         var reloaded = await LoadHousehold(context, household.Id);
 
-        Assert.Equal(2, reloaded.Members.Count(member => member.AccountId is null));
+        Assert.Equal(2, reloaded.Members.Count(member => member.Role == HouseholdRole.Member));
     }
 
     public async Task DisposeAsync()

@@ -10,16 +10,16 @@ public sealed class LeaveHouseholdTests
     public void Leave_removes_only_the_acting_membership_and_advances_updated_at(HouseholdRole role)
     {
         var household = new Domain.Household.Household("Home", Guid.NewGuid());
-        var accountId = Guid.NewGuid();
-        Assert.True(household.AddMember(role, accountId).IsSuccess);
+        var personId = Guid.NewGuid();
+        Assert.True(household.AddMember(role, personId).IsSuccess);
         Assert.True(household.AddMember(HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest).IsSuccess);
-        var target = Assert.Single(household.Members, member => member.AccountId == accountId);
+        Assert.True(household.AddMember(HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
+        var target = Assert.Single(household.Members, member => member.PersonId == personId);
         var before = Snapshot(household);
         var earlier = SetEarlierUpdatedAt(household);
         var start = DateTime.UtcNow;
 
-        var result = household.Leave(accountId);
+        var result = household.Leave(personId);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -32,13 +32,13 @@ public sealed class LeaveHouseholdTests
 
     [Theory]
     [InlineData(true, LeaveHouseholdError.OwnerCannotLeave)]
-    [InlineData(false, LeaveHouseholdError.CurrentAccountNotMember)]
+    [InlineData(false, LeaveHouseholdError.CurrentPersonNotMember)]
     public void Leave_rejection_preserves_every_membership_and_updated_at(bool owner, LeaveHouseholdError error)
     {
         var ownerId = Guid.NewGuid();
         var household = new Domain.Household.Household("Home", ownerId);
         Assert.True(household.AddMember(HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest).IsSuccess);
+        Assert.True(household.AddMember(HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
         var before = Snapshot(household);
         var earlier = SetEarlierUpdatedAt(household);
 
@@ -61,7 +61,7 @@ public sealed class LeaveHouseholdTests
         return earlier;
     }
 
-    private static (Guid MembershipId, Guid? AccountId, HouseholdRole Role)[] Snapshot(Domain.Household.Household household)
+    private static (Guid MembershipId, Guid PersonId, HouseholdRole Role)[] Snapshot(Domain.Household.Household household)
         => household.Members.OrderBy(member => member.MembershipId)
-            .Select(member => (member.MembershipId, member.AccountId, member.Role)).ToArray();
+            .Select(member => (member.MembershipId, member.PersonId, member.Role)).ToArray();
 }
