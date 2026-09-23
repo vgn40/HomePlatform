@@ -13,10 +13,10 @@ public class HouseholdMembersTest
         var household = CreateHousehold();
         var personId = Guid.NewGuid();
 
-        var result = household.AddMember(role, personId);
+        var result = household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, role, personId);
 
         Assert.True(result.IsSuccess);
-        Assert.Null(result.ErrorMessage);
+        Assert.Null(result.Error);
 
         var member = Assert.Single(
             household.Members,
@@ -24,6 +24,8 @@ public class HouseholdMembersTest
         Assert.NotEqual(Guid.Empty, member.MembershipId);
         Assert.Equal(personId, member.PersonId);
         Assert.Equal(role, member.Role);
+        Assert.Equal(2, household.Members.Count);
+        Assert.Single(household.Members, membership => membership.Role == HouseholdRole.Owner);
     }
 
     [Fact]
@@ -31,7 +33,7 @@ public class HouseholdMembersTest
     {
         var household = CreateHousehold();
 
-        var result = household.AddMember(HouseholdRole.Member, Guid.NewGuid());
+        var result = household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, Guid.NewGuid());
 
         Assert.True(result.IsSuccess);
 
@@ -48,8 +50,8 @@ public class HouseholdMembersTest
     {
         var household = CreateHousehold();
 
-        var firstResult = household.AddMember(HouseholdRole.Member, Guid.NewGuid());
-        var secondResult = household.AddMember(HouseholdRole.Guest, Guid.NewGuid());
+        var firstResult = household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, Guid.NewGuid());
+        var secondResult = household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, Guid.NewGuid());
 
         Assert.True(firstResult.IsSuccess);
         Assert.True(secondResult.IsSuccess);
@@ -66,6 +68,7 @@ public class HouseholdMembersTest
         var personId = Guid.NewGuid();
 
         var result = household.AddMember(
+            household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
             HouseholdRole.Member,
             personId);
 
@@ -83,17 +86,19 @@ public class HouseholdMembersTest
         var personId = Guid.NewGuid();
 
         var firstResult = household.AddMember(
+            household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
             HouseholdRole.Member,
             personId);
         var duplicateResult = household.AddMember(
+            household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
             HouseholdRole.Guest,
             personId);
 
         Assert.True(firstResult.IsSuccess);
         Assert.False(duplicateResult.IsSuccess);
         Assert.Equal(
-            "Person is already linked to a membership in this household.",
-            duplicateResult.ErrorMessage);
+            AddHouseholdMemberError.PersonAlreadyMember,
+            duplicateResult.Error);
         Assert.Equal(2, household.Members.Count);
         Assert.Single(
             household.Members,
@@ -101,16 +106,20 @@ public class HouseholdMembersTest
     }
 
     [Fact]
-    public void AddMember_keeps_updated_at_initialized()
+    public void AddMember_updates_updated_at()
     {
         var household = CreateHousehold();
+        var previousUpdatedAt = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        typeof(Domain.Household.Household).GetProperty(nameof(household.UpdatedAt))!
+            .SetValue(household, previousUpdatedAt);
 
         var result = household.AddMember(
+            household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
             HouseholdRole.Member,
             Guid.NewGuid());
 
         Assert.True(result.IsSuccess);
-        Assert.NotEqual(default, household.UpdatedAt);
+        Assert.True(household.UpdatedAt > previousUpdatedAt);
         Assert.Equal(DateTimeKind.Utc, household.UpdatedAt.Kind);
     }
 
@@ -131,8 +140,45 @@ public class HouseholdMembersTest
         var household = CreateHousehold();
 
         Assert.Throws<ArgumentException>(() =>
-            household.AddMember(HouseholdRole.Owner, Guid.Empty));
+            household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, Guid.Empty));
         Assert.Single(household.Members);
+    }
+
+    [Theory]
+    [InlineData("outsider", AddHouseholdMemberError.CurrentPersonNotMember)]
+    [InlineData("member", AddHouseholdMemberError.CurrentPersonNotOwner)]
+    [InlineData("guest", AddHouseholdMemberError.CurrentPersonNotOwner)]
+    [InlineData("owner", AddHouseholdMemberError.CannotAddOwner)]
+    [InlineData("duplicate", AddHouseholdMemberError.PersonAlreadyMember)]
+    public void AddMember_failure_preserves_members_ownership_and_updated_at(
+        string scenario, AddHouseholdMemberError expected)
+    {
+        var household = CreateHousehold();
+        var ownerId = Assert.Single(household.Members).PersonId;
+        var actorId = ownerId;
+        if (scenario is "member" or "guest")
+        {
+            actorId = Guid.NewGuid();
+            Assert.True(household.AddMember(ownerId,
+                scenario == "member" ? HouseholdRole.Member : HouseholdRole.Guest,
+                actorId).IsSuccess);
+        }
+        if (scenario == "outsider") actorId = Guid.NewGuid();
+        var before = household.Members.Select(member =>
+            (member.MembershipId, member.PersonId, member.Role)).ToArray();
+        var updatedAt = household.UpdatedAt;
+
+        var result = household.AddMember(actorId,
+            scenario == "owner" ? HouseholdRole.Owner : HouseholdRole.Member,
+            scenario == "duplicate" ? ownerId : Guid.NewGuid());
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(expected, result.Error);
+        Assert.Equal(before, household.Members.Select(member =>
+            (member.MembershipId, member.PersonId, member.Role)).ToArray());
+        Assert.Equal(ownerId, Assert.Single(household.Members,
+            member => member.Role == HouseholdRole.Owner).PersonId);
+        Assert.Equal(updatedAt, household.UpdatedAt);
     }
 
     private static Domain.Household.Household CreateHousehold()

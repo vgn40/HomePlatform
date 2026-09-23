@@ -34,8 +34,8 @@ public sealed class LeaveHouseholdPersistenceTests : IAsyncLifetime
         await _factory.CreateIdentityAccountAsync(ownerId);
         await _factory.CreateIdentityAccountAsync(accountId);
         var household = new Household("Leave persistence", ownerId);
-        Assert.True(household.AddMember(role, accountId).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, role, accountId).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
         var targetId = household.Members.Single(member => member.PersonId == accountId).MembershipId;
         var before = household.Members.OrderBy(member => member.MembershipId)
             .Select(member => (member.MembershipId, member.PersonId, member.Role)).ToArray();

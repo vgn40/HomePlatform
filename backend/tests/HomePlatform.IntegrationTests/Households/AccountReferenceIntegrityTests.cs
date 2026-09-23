@@ -61,7 +61,7 @@ public sealed class AccountReferenceIntegrityTests : IAsyncLifetime
         await using (var context = CreateContext())
         {
             var tracked = await LoadHouseholdAsync(context, household.Id);
-            Assert.True(tracked.AddMember(role, loginlessPersonId).IsSuccess);
+            Assert.True(tracked.AddMember(tracked.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, role, loginlessPersonId).IsSuccess);
             membershipId = Assert.Single(tracked.Members,
                 candidate => candidate.PersonId == loginlessPersonId).MembershipId;
             await context.SaveChangesAsync();
@@ -89,7 +89,7 @@ public sealed class AccountReferenceIntegrityTests : IAsyncLifetime
         {
             Assert.False(await context.Users.AnyAsync(user => user.Id == unknownAccountId));
             var tracked = await LoadHouseholdAsync(context, household.Id);
-            Assert.True(tracked.AddMember(HouseholdRole.Member, unknownAccountId).IsSuccess);
+            Assert.True(tracked.AddMember(tracked.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, unknownAccountId).IsSuccess);
             invalidMembershipId = Assert.Single(tracked.Members,
                 candidate => candidate.PersonId == unknownAccountId).MembershipId;
 
@@ -231,10 +231,10 @@ public sealed class AccountReferenceIntegrityTests : IAsyncLifetime
         Assert.Equal(CreateHouseholdOutcome.Success, created.Outcome);
         var household = await db.Set<Household>().Include(h => h.Members).SingleAsync();
         Assert.Equal(owner.PersonId, Assert.Single(household.Members).PersonId);
-        Assert.True(household.AddMember(HouseholdRole.Member, member.PersonId).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, member.PersonId).IsSuccess);
         var loginless = new Person();
         db.Set<Person>().Add(loginless);
-        Assert.True(household.AddMember(HouseholdRole.Guest, loginless.Id).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, loginless.Id).IsSuccess);
         await db.SaveChangesAsync();
         Assert.True(await resolver.HasAccountForPersonAsync(owner.PersonId));
         Assert.False(await resolver.HasAccountForPersonAsync(loginless.Id));
@@ -332,7 +332,7 @@ public sealed class AccountReferenceIntegrityTests : IAsyncLifetime
         var household = new Household("Account reference household", ownerAccountId);
         if (role != HouseholdRole.Owner)
         {
-            Assert.True(household.AddMember(role, accountId).IsSuccess);
+            Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, role, accountId).IsSuccess);
         }
 
         await using var context = CreateContext();

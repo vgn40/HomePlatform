@@ -445,16 +445,19 @@ public sealed class TransferOwnershipEndpointTests : IAsyncLifetime
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 targetRole,
                 targetAccountId).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 callerRole,
                 otherAccountId).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member, loginlessPersonId).IsSuccess);
 
         await using var scope =

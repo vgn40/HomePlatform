@@ -1,6 +1,7 @@
 using HomePlatform.Application.Accounts.Refresh;
 using HomePlatform.Application.Accounts.Register;
 using HomePlatform.Application.Accounts.SignIn;
+using HomePlatform.Application.Households.AddHouseholdMemberWithoutAccount;
 using HomePlatform.Application.Households.CloseHousehold;
 using HomePlatform.Application.Households.CreateHousehold;
 using HomePlatform.Application.Households.LeaveHousehold;
@@ -27,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<TransferOwnershipHandler>();
         services.AddScoped<LeaveHouseholdHandler>();
         services.AddScoped<CloseHouseholdHandler>();
+        services.AddScoped<AddHouseholdMemberWithoutAccountHandler>();
 
         return services;
     }

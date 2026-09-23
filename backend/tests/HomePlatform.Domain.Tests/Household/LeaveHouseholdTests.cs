@@ -11,9 +11,9 @@ public sealed class LeaveHouseholdTests
     {
         var household = new Domain.Household.Household("Home", Guid.NewGuid());
         var personId = Guid.NewGuid();
-        Assert.True(household.AddMember(role, personId).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, role, personId).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
         var target = Assert.Single(household.Members, member => member.PersonId == personId);
         var before = Snapshot(household);
         var earlier = SetEarlierUpdatedAt(household);
@@ -37,8 +37,8 @@ public sealed class LeaveHouseholdTests
     {
         var ownerId = Guid.NewGuid();
         var household = new Domain.Household.Household("Home", ownerId);
-        Assert.True(household.AddMember(HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
         var before = Snapshot(household);
         var earlier = SetEarlierUpdatedAt(household);
 

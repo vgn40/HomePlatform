@@ -79,8 +79,8 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         await Factory.CreateIdentityAccountAsync(targetAccountId);
         var household = new Household("Ownership transfer", ownerAccountId);
         var ownerMembershipId = Assert.Single(household.Members).MembershipId;
-        Assert.True(household.AddMember(targetRole, targetAccountId).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, targetRole, targetAccountId).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
         var targetMembershipId = Assert.Single(household.Members,
             member => member.PersonId == targetAccountId).MembershipId;
         var expectedMemberships = household.Members
@@ -234,8 +234,8 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         var accountB = Guid.NewGuid();
         await Factory.CreateIdentityAccountAsync(accountB);
 
-        Assert.True(household1.AddMember(HouseholdRole.Member, accountB).IsSuccess);
-        Assert.True(household2.AddMember(HouseholdRole.Member, accountB).IsSuccess);
+        Assert.True(household1.AddMember(household1.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, accountB).IsSuccess);
+        Assert.True(household2.AddMember(household2.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, accountB).IsSuccess);
 
         await context1.SaveChangesAsync();
 
@@ -253,8 +253,8 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         await Factory.CreateIdentityAccountAsync(ownerAccountId);
         var household = new Household("Test household", ownerAccountId);
 
-        Assert.True(household.AddMember(HouseholdRole.Member, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Member, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, await Factory.CreateLoginlessPersonAsync()).IsSuccess);
 
         await using var context = CreateContext();
         context.Set<Household>().Add(household);

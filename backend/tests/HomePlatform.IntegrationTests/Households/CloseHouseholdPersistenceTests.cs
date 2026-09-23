@@ -32,12 +32,12 @@ public sealed class CloseHouseholdPersistenceTests : IAsyncLifetime
         await _factory.CreateIdentityAccountAsync(ownerId);
         await _factory.CreateIdentityAccountAsync(memberId);
         var household = new Household("Close persistence", ownerId);
-        Assert.True(household.AddMember(HouseholdRole.Member, memberId).IsSuccess);
-        Assert.True(household.AddMember(HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, memberId).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
         var membershipIds = household.Members.Select(m => m.MembershipId).ToArray();
         var unrelated = new Household("Unrelated home", memberId);
-        Assert.True(unrelated.AddMember(HouseholdRole.Member, ownerId).IsSuccess);
-        Assert.True(unrelated.AddMember(HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
+        Assert.True(unrelated.AddMember(unrelated.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, ownerId).IsSuccess);
+        Assert.True(unrelated.AddMember(unrelated.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
         var unrelatedMembers = unrelated.Members.OrderBy(m => m.MembershipId)
             .Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray();
         await using (var setup = _factory.Services.CreateAsyncScope())

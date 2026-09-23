@@ -245,16 +245,19 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 targetRole,
                 targetAccountId).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member,
                 otherAccountId).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
 
         await using var scope =
@@ -273,6 +276,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
 
         Assert.True(
             unrelated.AddMember(
+                unrelated.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Guest, await _factory!.CreateLoginlessPersonAsync()).IsSuccess);
 
         db.Add(unrelated);

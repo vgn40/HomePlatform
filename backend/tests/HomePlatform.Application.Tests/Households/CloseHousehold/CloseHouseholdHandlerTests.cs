@@ -62,6 +62,7 @@ public sealed class CloseHouseholdHandlerTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
         var before = CaptureState(household);
@@ -103,11 +104,13 @@ public sealed class CloseHouseholdHandlerTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 role,
                 personId).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
         var before = CaptureState(household);
@@ -146,6 +149,7 @@ public sealed class CloseHouseholdHandlerTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member,
                 Guid.NewGuid()).IsSuccess);
 

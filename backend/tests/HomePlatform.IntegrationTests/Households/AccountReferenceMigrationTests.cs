@@ -81,7 +81,7 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
         await InsertHistoricalAccountAsync(ownerAccountId);
         var danglingAccountId = Guid.NewGuid();
         var household = new Household("Existing dangling reference", ownerAccountId);
-        Assert.True(household.AddMember(HouseholdRole.Member, danglingAccountId).IsSuccess);
+        Assert.True(household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, danglingAccountId).IsSuccess);
         await PersistHouseholdAsync(household);
         await AssertExistingDataAsync(household, ownerAccountId);
 

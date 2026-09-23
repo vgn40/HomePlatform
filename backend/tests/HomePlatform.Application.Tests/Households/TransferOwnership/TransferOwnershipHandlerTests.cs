@@ -472,6 +472,7 @@ public sealed class TransferOwnershipHandlerTests
         personId ??= LoginlessPersonId;
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 role,
                 personId.Value).IsSuccess);
 

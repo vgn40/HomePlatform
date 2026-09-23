@@ -1,7 +1,5 @@
 namespace HomePlatform.Domain.Household;
 
-using HomePlatform.Domain.Common;
-
 public class Household
 {
     public const int MaxNameLength = 100;
@@ -62,14 +60,39 @@ public class Household
         _members.Add(owner);
     }
 
-    public Result AddMember(
+    public AddHouseholdMemberDomainResult AddMember(
+        Guid currentPersonId,
         HouseholdRole role,
         Guid personId)
     {
-        if (_members.Any(member => member.PersonId == personId))
+        var currentMember = _members.FirstOrDefault(
+            member =>
+                member.PersonId == currentPersonId);
+
+        if (currentMember is null)
         {
-            return Result.Failure(
-                "Person is already linked to a membership in this household.");
+            return AddHouseholdMemberDomainResult.Failure(
+                AddHouseholdMemberError.CurrentPersonNotMember);
+        }
+
+        if (currentMember.Role != HouseholdRole.Owner)
+        {
+            return AddHouseholdMemberDomainResult.Failure(
+                AddHouseholdMemberError.CurrentPersonNotOwner);
+        }
+
+        if (role == HouseholdRole.Owner)
+        {
+            return AddHouseholdMemberDomainResult.Failure(
+                AddHouseholdMemberError.CannotAddOwner);
+        }
+
+        if (_members.Any(
+                member =>
+                    member.PersonId == personId))
+        {
+            return AddHouseholdMemberDomainResult.Failure(
+                AddHouseholdMemberError.PersonAlreadyMember);
         }
 
         var member = new HouseholdMember(
@@ -79,7 +102,7 @@ public class Household
         _members.Add(member);
         UpdatedAt = DateTime.UtcNow;
 
-        return Result.Success();
+        return AddHouseholdMemberDomainResult.Success();
     }
 
     public TransferOwnershipDomainResult ValidateTransferOwnership(
@@ -125,17 +148,27 @@ public class Household
         Guid currentOwnerPersonId,
         Guid newOwnerMembershipId)
     {
-        var validation = ValidateTransferOwnership(currentOwnerPersonId, newOwnerMembershipId);
+        var validation = ValidateTransferOwnership(
+            currentOwnerPersonId,
+            newOwnerMembershipId);
+
         if (!validation.IsSuccess)
         {
             return validation;
         }
 
-        var currentMember = _members.Single(member => member.PersonId == currentOwnerPersonId);
-        var newOwner = _members.Single(member => member.MembershipId == newOwnerMembershipId);
+        var currentMember = _members.Single(
+            member =>
+                member.PersonId == currentOwnerPersonId);
+
+        var newOwner = _members.Single(
+            member =>
+                member.MembershipId == newOwnerMembershipId);
+
         newOwner.ChangeRole(HouseholdRole.Owner);
         currentMember.ChangeRole(HouseholdRole.Member);
         UpdatedAt = DateTime.UtcNow;
+
         return TransferOwnershipDomainResult.Success();
     }
 

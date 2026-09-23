@@ -3,6 +3,7 @@ using HomePlatform.Application.Accounts.Refresh;
 using HomePlatform.Application.Accounts.Register;
 using HomePlatform.Application.Accounts.SignIn;
 using HomePlatform.Application.Households;
+using HomePlatform.Application.Households.AddHouseholdMemberWithoutAccount;
 using HomePlatform.Infrastructure.Identity;
 using HomePlatform.Infrastructure.Persistence;
 using HomePlatform.Infrastructure.Persistence.Repositories;
@@ -46,6 +47,10 @@ public static class DependencyInjection
             HouseholdRepository>();
 
         services.AddScoped<
+            IAddHouseholdMemberWithoutAccountPersistence,
+            AddHouseholdMemberWithoutAccountPersistence>();
+
+        services.AddScoped<
             IAccountRegistration,
             IdentityAccountRegistration>();
 
@@ -57,8 +62,13 @@ public static class DependencyInjection
             IAccountRefresh,
             IdentityAccountRefresh>();
 
-        services.AddScoped<IAccountPersonLookup, IdentityAccountPersonLookup>();
-        services.AddScoped<ICurrentPerson, IdentityCurrentPerson>();
+        services.AddScoped<
+            IAccountPersonLookup,
+            IdentityAccountPersonLookup>();
+
+        services.AddScoped<
+            ICurrentPerson,
+            IdentityCurrentPerson>();
 
         return services;
     }

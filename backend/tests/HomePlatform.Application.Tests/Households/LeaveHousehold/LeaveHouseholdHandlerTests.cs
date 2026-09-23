@@ -61,6 +61,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member,
                 Guid.NewGuid()).IsSuccess);
 
@@ -100,6 +101,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member,
                 Guid.NewGuid()).IsSuccess);
 
@@ -146,6 +148,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 role,
                 personId).IsSuccess);
 
@@ -228,6 +231,7 @@ public sealed class LeaveHouseholdHandlerTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member,
                 personId).IsSuccess);
 

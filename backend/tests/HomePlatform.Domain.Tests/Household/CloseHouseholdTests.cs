@@ -27,20 +27,24 @@ public sealed class CloseHouseholdTests
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member,
                 memberId).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Guest,
                 guestId).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Member, Guid.NewGuid()).IsSuccess);
 
         Assert.True(
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
         var earlier =

@@ -1,3 +1,4 @@
+using HomePlatform.Application.Households.AddHouseholdMemberWithoutAccount;
 using HomePlatform.Application.Households.CloseHousehold;
 using HomePlatform.Application.Households.CreateHousehold;
 using HomePlatform.Application.Households.LeaveHousehold;
@@ -57,6 +58,68 @@ public static class HouseholdEndpoints
                 StatusCodes.Status400BadRequest)
             .Produces(
                 StatusCodes.Status401Unauthorized);
+
+        endpoints.MapPost(
+                "/api/households/{householdId:guid}/members/without-account",
+                async (
+                    Guid householdId,
+                    AddHouseholdMemberWithoutAccountRequest request,
+                    AddHouseholdMemberWithoutAccountHandler handler,
+                    CancellationToken cancellationToken) =>
+                {
+                    var command =
+                        new AddHouseholdMemberWithoutAccountCommand(
+                            householdId,
+                            request.DisplayName,
+                            request.Role);
+
+                    var result = await handler.Handle(
+                        command,
+                        cancellationToken);
+
+                    return result.Outcome switch
+                    {
+                        AddHouseholdMemberWithoutAccountOutcome.Success
+                            when result.PersonId is Guid personId
+                            && result.MembershipId is Guid membershipId
+                            => Results.Created(
+                                $"/api/households/{householdId}/members/{membershipId}",
+                                new AddHouseholdMemberWithoutAccountResponse(
+                                    personId,
+                                    membershipId)),
+
+                        AddHouseholdMemberWithoutAccountOutcome.Unauthenticated
+                            => Results.Unauthorized(),
+
+                        AddHouseholdMemberWithoutAccountOutcome.NotFound
+                            => Results.NotFound(),
+
+                        AddHouseholdMemberWithoutAccountOutcome.Forbidden
+                            => Results.Forbid(),
+
+                        AddHouseholdMemberWithoutAccountOutcome.Invalid
+                            => Results.Problem(
+                                title: "Cannot add household member without account",
+                                detail: result.Error,
+                                statusCode: StatusCodes.Status400BadRequest),
+
+                        _ => throw new InvalidOperationException(
+                            "Unexpected AddHouseholdMemberWithoutAccount outcome.")
+                    };
+                })
+            .RequireAuthorization()
+            .WithName("AddHouseholdMemberWithoutAccount")
+            .WithTags("Households")
+            .Produces<AddHouseholdMemberWithoutAccountResponse>(
+                StatusCodes.Status201Created)
+            .ProducesProblem(
+                StatusCodes.Status400BadRequest)
+            .Produces(
+                StatusCodes.Status401Unauthorized)
+            .Produces(
+                StatusCodes.Status403Forbidden)
+            .Produces(
+                StatusCodes.Status404NotFound);
 
         endpoints.MapPut(
                 "/api/households/{householdId:guid}/ownership",

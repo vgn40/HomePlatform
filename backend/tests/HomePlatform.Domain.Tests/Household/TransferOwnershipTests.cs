@@ -486,6 +486,7 @@ public class TransferOwnershipTests
         personId ??= Guid.NewGuid();
         var result =
             household.AddMember(
+                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 role,
                 personId.Value);
 
