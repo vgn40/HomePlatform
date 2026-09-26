@@ -80,10 +80,6 @@ public sealed class AddHouseholdMemberWithoutAccountHandler
                 AddHouseholdMemberError.CurrentPersonNotOwner =>
                     AddHouseholdMemberWithoutAccountResult.Forbidden(),
 
-                AddHouseholdMemberError.CannotAddOwner =>
-                    AddHouseholdMemberWithoutAccountResult.Invalid(
-                        "A new household member cannot be added as owner."),
-
                 AddHouseholdMemberError.PersonAlreadyMember =>
                     AddHouseholdMemberWithoutAccountResult.Invalid(
                         "Person is already a member of this household."),

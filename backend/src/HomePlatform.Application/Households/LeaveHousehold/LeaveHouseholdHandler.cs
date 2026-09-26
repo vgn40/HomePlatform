@@ -46,9 +46,9 @@ public sealed class LeaveHouseholdHandler
                 LeaveHouseholdError.CurrentPersonNotMember
                     => LeaveHouseholdResult.NotFound(),
 
-                LeaveHouseholdError.OwnerCannotLeave
+                LeaveHouseholdError.LastOwnerCannotLeave
                     => LeaveHouseholdResult.Invalid(
-                        "Owner must transfer ownership or close the household before leaving."),
+                        "The last owner must transfer ownership or close the household before leaving."),
 
                 _ => throw new InvalidOperationException(
                     "Unexpected LeaveHousehold domain error.")

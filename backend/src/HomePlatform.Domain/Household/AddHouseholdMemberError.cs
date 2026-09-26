@@ -4,6 +4,5 @@ public enum AddHouseholdMemberError
 {
     CurrentPersonNotMember,
     CurrentPersonNotOwner,
-    CannotAddOwner,
     PersonAlreadyMember
 }

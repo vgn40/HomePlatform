@@ -120,7 +120,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
                 problem.Title);
 
             Assert.Equal(
-                "Owner must transfer ownership or close the household before leaving.",
+                "The last owner must transfer ownership or close the household before leaving.",
                 problem.Detail);
         }
 
@@ -132,6 +132,7 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
     [Theory]
     [InlineData(HouseholdRole.Member)]
     [InlineData(HouseholdRole.Guest)]
+    [InlineData(HouseholdRole.Owner)]
     public async Task Successful_leave_returns_empty_204_deletes_exact_member_and_preserves_household(
         HouseholdRole role)
     {
@@ -289,19 +290,19 @@ public sealed class LeaveHouseholdEndpointTests : IAsyncLifetime
 
         Assert.True(
             household.AddMember(
-                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
+                ownerAccountId,
                 targetRole,
                 targetAccountId).IsSuccess);
 
         Assert.True(
             household.AddMember(
-                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
+                ownerAccountId,
                 callerRole,
                 otherAccountId).IsSuccess);
 
         Assert.True(
             household.AddMember(
-                household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
+                ownerAccountId,
                 HouseholdRole.Member, loginlessPersonId).IsSuccess);
 
         await using var scope =

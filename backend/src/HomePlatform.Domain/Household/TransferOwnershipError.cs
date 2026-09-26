@@ -5,5 +5,6 @@ public enum TransferOwnershipError
     CurrentPersonNotOwner,
     NewOwnerNotFound,
     CannotTransferToSelf,
-    CurrentPersonNotMember
+    CurrentPersonNotMember,
+    NewOwnerAlreadyOwner
 }

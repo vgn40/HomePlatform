@@ -62,6 +62,10 @@ public sealed class TransferOwnershipHandler
                     => TransferOwnershipResult.Invalid(
                         "Owner cannot transfer ownership to themselves."),
 
+                TransferOwnershipError.NewOwnerAlreadyOwner
+                    => TransferOwnershipResult.Invalid(
+                        "New owner is already an owner of this household."),
+
                 _ => throw new InvalidOperationException(
                     "Unexpected TransferOwnership domain error.")
             };

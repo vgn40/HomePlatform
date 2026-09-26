@@ -31,7 +31,7 @@ public sealed class LeaveHouseholdTests
     }
 
     [Theory]
-    [InlineData(true, LeaveHouseholdError.OwnerCannotLeave)]
+    [InlineData(true, LeaveHouseholdError.LastOwnerCannotLeave)]
     [InlineData(false, LeaveHouseholdError.CurrentPersonNotMember)]
     public void Leave_rejection_preserves_every_membership_and_updated_at(bool owner, LeaveHouseholdError error)
     {

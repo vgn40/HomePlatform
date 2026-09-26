@@ -14,7 +14,7 @@ public sealed class LeaveHouseholdDomainResultTests
 
     [Theory]
     [InlineData(LeaveHouseholdError.CurrentPersonNotMember)]
-    [InlineData(LeaveHouseholdError.OwnerCannotLeave)]
+    [InlineData(LeaveHouseholdError.LastOwnerCannotLeave)]
     public void Failure_preserves_error(LeaveHouseholdError error)
     {
         var result = LeaveHouseholdDomainResult.Failure(error);

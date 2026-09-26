@@ -91,7 +91,7 @@ public sealed class LeaveHouseholdHandlerTests
     }
 
     [Fact]
-    public async Task Handle_owner_returns_invalid_without_update()
+    public async Task Handle_last_owner_returns_invalid_without_update()
     {
         var ownerId = Guid.NewGuid();
 
@@ -123,7 +123,7 @@ public sealed class LeaveHouseholdHandlerTests
             result.Outcome);
 
         Assert.Equal(
-            "Owner must transfer ownership or close the household before leaving.",
+            "The last owner must transfer ownership or close the household before leaving.",
             result.ErrorMessage);
 
         AssertUnchanged(
@@ -137,6 +137,7 @@ public sealed class LeaveHouseholdHandlerTests
     [Theory]
     [InlineData(HouseholdRole.Member)]
     [InlineData(HouseholdRole.Guest)]
+    [InlineData(HouseholdRole.Owner)]
     public async Task Handle_removes_current_account_and_updates_same_aggregate_once(
         HouseholdRole role)
     {

@@ -60,8 +60,9 @@ its atomicity, ownership resolution and readiness are not verified by this task.
    HouseholdMember never automatically becomes Owner because someone leaves.
 3. TransferOwnership explicitly selects a concrete eligible Account-linked
    person. Acceptance by the destination Owner is **OPEN**.
-4. Owner requires a real Account. `Role = Owner` with `AccountId = null` is
-   invalid, including after Account deletion.
+4. HouseholdRole is independent of Account presence: a Person without an
+   ApplicationUser may be Owner. Any number of Owners is supported. This does
+   not change the separately defined DeleteAccount membership lifecycle.
 5. A continuing Household must retain an Owner. A departing last Owner must
    explicitly transfer ownership or close the Household before Account deletion.
 6. A Household used only by the departing Account may be explicitly closed
@@ -107,9 +108,9 @@ its atomicity, ownership resolution and readiness are not verified by this task.
 | Operation | Scope and adopted boundary | Implementation status |
 |---|---|---|
 | DeleteAccount | Resolve ownership rules, explicitly delete all Account-linked HouseholdMember memberships across all Households, then delete Identity/ApplicationUser and Account-owned data; no conversion to loginless or implicit Household closure | NOT YET IMPLEMENTED |
-| LeaveHousehold | Depart from one Household while preserving Account and other memberships | IMPLEMENTED, Testing-only: removes caller Member/Guest; refuses every Owner with 409, even if another Owner remains |
-| TransferOwnership | Explicitly choose an eligible Account-linked destination; no automatic promotion | IMPLEMENTED, Testing-only: current Owner demoted to Member, target promoted to Owner; IDs preserved; destination acceptance and concurrency remain open |
-| CloseHousehold | Explicitly end a Household, separately from Account deletion | IMPLEMENTED, Testing-only: Owner authorizes physical Household deletion; all its memberships cascade-delete, Accounts survive; future record-type policies remain open |
+| LeaveHousehold | Depart from one Household while preserving Account and other memberships | IMPLEMENTED, Testing-only: removes caller Member/Guest or Owner when another Owner remains; refuses only the last Owner with 409, including the sole member |
+| TransferOwnership | Explicitly choose an eligible Account-linked destination; no automatic promotion | IMPLEMENTED, Testing-only: current Owner demoted to Member, non-Owner target promoted to Owner; other Owners and IDs preserved; already-Owner target rejected; destination acceptance and concurrency remain open |
+| CloseHousehold | Explicitly end a Household, separately from Account deletion | IMPLEMENTED, Testing-only: any Owner authorizes physical Household deletion; all its memberships cascade-delete, Accounts survive; future record-type policies remain open |
 
 The three Household HTTP contracts are recorded in
 [TARGET-ARCHITECTURE](../architecture/target/TARGET-ARCHITECTURE.md#current-architecture).
@@ -117,7 +118,8 @@ Their Domain, handler, persistence and endpoint tests exist; no new passing
 runtime result is claimed here. DeleteAccount membership fate is
 **ADOPTED: delete, never automatically convert to loginless**. This does not
 decide concrete future feature lifecycles. Current standalone LeaveHousehold
-behavior is the stricter Owner-refusal rule shown above; relaxing it is OPEN.
+allows an Owner to leave when another Owner remains. The last Owner must
+explicitly transfer or close; Leave never silently deletes a Household.
 A stable MembershipId does not mandate retaining a Membership or personal
 attribution after deletion.
 
@@ -151,10 +153,12 @@ or leave no partial deletion. Exact concurrency and transaction mechanics are
   Owner authority. There is no “last Owner disappears, pick another Member” rule.
 - TransferOwnership must identify a concrete eligible destination with a valid
   Account link. Loginless HouseholdMembers cannot be that destination.
-- The current [HouseholdMember constructor](../../backend/src/HomePlatform.Domain/Household/HouseholdMember.cs)
-  rejects Owner with null AccountId. This is a construction invariant, not proof
-  of database referential integrity or lifecycle concurrency safety. The FK and
-  sequential transfer/leave/close behavior are implemented separately.
+- Household supports one, two or more Owners, including Persons without an
+  ApplicationUser. AddMember accepts every valid HouseholdRole and preserves
+  existing Owners. Person identity remains separate from Account identity.
+- Leave checks that another Owner remains before removing an Owner. A rejected
+  last-Owner leave preserves membership state and UpdatedAt, including when
+  that Owner is the sole member. This aggregate check is not concurrency proof.
 - Destination acceptance is **OPEN** and may become a separately decided flow.
 
 ## Last Owner Flow
@@ -351,8 +355,8 @@ The guarding FK does not implement ownership lifecycle or protected-request
 current-Account validation.
 
 Do not use Account-to-HouseholdMember `CASCADE DELETE`: it can blindly remove
-membership/shared identity. Do not use automatic `SET NULL`: it can leave
-Owner with null AccountId. Database behavior cannot choose domain ownership.
+membership/shared identity. Do not use automatic `SET NULL` to substitute for
+an explicit Account/Person lifecycle. Database behavior cannot choose domain ownership.
 
 The current [HouseholdConfiguration](../../backend/src/HomePlatform.Infrastructure/Persistence/Configurations/HouseholdConfiguration.cs)
 has a separate Household-to-HouseholdMember cascade. Identity's own dependent
@@ -423,7 +427,7 @@ The following separate decisions remain open:
 | Hosting/provider/region decisions | OPEN; earlier Azure designs are PROPOSED options |
 | Immediate hard deletion of every future record type by CloseHousehold | OPEN; explicit closure does not settle all future data policies |
 | Precise concurrency strategy | OPEN; no Household concurrency token on main; atomicity and preservation of invariants remain required |
-| Standalone Owner leave | Current implementation refuses every Owner; whether to permit departure when another Owner remains is OPEN |
+| Standalone Owner leave | Owner may leave when another Owner remains; last Owner must transfer or explicitly close |
 
 There is no adopted grace period. Do not add one without a later concrete
 product decision. Resolve the relevant open decisions before implementing the
@@ -439,7 +443,7 @@ an alternative execution order or a claim that every primitive is absent.
 |---|---|---|
 | A — docs/decisions | Record the adopted lifecycle and preserve open questions | This document and active product/architecture/roadmap docs agree; no runtime completion claim |
 | B — Account reference integrity | IMPLEMENTED / VERIFIED locally: nullable FK, AccountId index, ClientNoAction / NO ACTION and real Identity-seeded fixtures | 12 integrity cases plus 2 valid/dangling upgrade cases; actual environment data still requires inspection before upgrade |
-| C — Household lifecycle primitives | IMPLEMENTED through Testing-only HTTP/Application/Domain/persistence: transfer, non-Owner leave and Owner close; concurrency and broader authorization proof remain open | Explicit destination/closure, no automatic promotion, no loginless Owner, no continuing ownerless Household, rollback/race proof |
+| C — Household lifecycle primitives | IMPLEMENTED through Testing-only HTTP/Application/Domain/persistence: transfer, Member/Guest or non-last-Owner leave and any-Owner close; concurrency and broader authorization proof remain open | Explicit destination/closure, no automatic promotion, Account-independent Owner role, no continuing ownerless Household, rollback/race proof |
 | D — DEFERRED immediate current-Account validation | Trigger on concrete immediate-cutoff or release risk; current membership checks remain required | Prove unexpired-token denial if selected; otherwise explicitly document acceptable access expiry window; removed membership cannot retain Household access |
 | E — DeleteAccount | Resolve ownership across all Households, refuse unresolved last-Owner cases, explicitly delete every Account-linked membership without loginless conversion, atomically apply approved lifecycle and delete Identity Account | Multi-Household membership deletion/no-conversion, ownership success/refusal, rollback, concurrency, feature-specific reference cleanup, existing loginless-person cases, post-commit Refresh denial and the chosen access-token policy |
 | F — wider privacy rights | ExportMyData, rectification/ChangeEmail, wider request handling | Decide scope/verification and remaining legal questions; protect other people's data |

@@ -81,12 +81,6 @@ public class Household
                 AddHouseholdMemberError.CurrentPersonNotOwner);
         }
 
-        if (role == HouseholdRole.Owner)
-        {
-            return AddHouseholdMemberDomainResult.Failure(
-                AddHouseholdMemberError.CannotAddOwner);
-        }
-
         if (_members.Any(
                 member =>
                     member.PersonId == personId))
@@ -141,6 +135,12 @@ public class Household
                 TransferOwnershipError.CannotTransferToSelf);
         }
 
+        if (newOwner.Role == HouseholdRole.Owner)
+        {
+            return TransferOwnershipDomainResult.Failure(
+                TransferOwnershipError.NewOwnerAlreadyOwner);
+        }
+
         return TransferOwnershipDomainResult.Success();
     }
 
@@ -185,10 +185,13 @@ public class Household
                 LeaveHouseholdError.CurrentPersonNotMember);
         }
 
-        if (currentMember.Role == HouseholdRole.Owner)
+        if (currentMember.Role == HouseholdRole.Owner &&
+            !_members.Any(member =>
+                member.PersonId != currentPersonId &&
+                member.Role == HouseholdRole.Owner))
         {
             return LeaveHouseholdDomainResult.Failure(
-                LeaveHouseholdError.OwnerCannotLeave);
+                LeaveHouseholdError.LastOwnerCannotLeave);
         }
 
         _members.Remove(currentMember);

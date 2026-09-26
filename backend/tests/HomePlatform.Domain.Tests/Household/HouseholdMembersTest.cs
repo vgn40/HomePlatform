@@ -7,6 +7,7 @@ public class HouseholdMembersTest
     [Theory]
     [InlineData(HouseholdRole.Member)]
     [InlineData(HouseholdRole.Guest)]
+    [InlineData(HouseholdRole.Owner)]
     public void AddMember_with_person_succeeds_and_creates_expected_membership(
         HouseholdRole role)
     {
@@ -25,7 +26,8 @@ public class HouseholdMembersTest
         Assert.Equal(personId, member.PersonId);
         Assert.Equal(role, member.Role);
         Assert.Equal(2, household.Members.Count);
-        Assert.Single(household.Members, membership => membership.Role == HouseholdRole.Owner);
+        Assert.Equal(role == HouseholdRole.Owner ? 2 : 1,
+            household.Members.Count(membership => membership.Role == HouseholdRole.Owner));
     }
 
     [Fact]
@@ -148,7 +150,6 @@ public class HouseholdMembersTest
     [InlineData("outsider", AddHouseholdMemberError.CurrentPersonNotMember)]
     [InlineData("member", AddHouseholdMemberError.CurrentPersonNotOwner)]
     [InlineData("guest", AddHouseholdMemberError.CurrentPersonNotOwner)]
-    [InlineData("owner", AddHouseholdMemberError.CannotAddOwner)]
     [InlineData("duplicate", AddHouseholdMemberError.PersonAlreadyMember)]
     public void AddMember_failure_preserves_members_ownership_and_updated_at(
         string scenario, AddHouseholdMemberError expected)
@@ -169,7 +170,7 @@ public class HouseholdMembersTest
         var updatedAt = household.UpdatedAt;
 
         var result = household.AddMember(actorId,
-            scenario == "owner" ? HouseholdRole.Owner : HouseholdRole.Member,
+            HouseholdRole.Member,
             scenario == "duplicate" ? ownerId : Guid.NewGuid());
 
         Assert.False(result.IsSuccess);

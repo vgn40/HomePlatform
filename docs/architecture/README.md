@@ -1,5 +1,15 @@
 # HomePlatform Architecture
 
+> Ownership update — 2026-09-23 (local implementation, not a commit or deployment):
+> a Household supports any number of Owners and must retain at least one while
+> it exists. An Owner can add Member, Guest or Owner, including a Person without
+> an ApplicationUser. Member/Guest and Owners with another Owner remaining may
+> leave; only the last Owner receives 409 and must transfer or explicitly close.
+> Transfer rejects an already-Owner target and changes only caller and target;
+> its existing Application requirement for an Account-linked target is unchanged.
+> Any Owner may close. These rules supersede older ownership statements below;
+> concurrency protection remains open.
+
 This section explains the implemented architecture, the approved direction,
 and the decisions and gates that still constrain implementation. It is intentionally
 separate from product research and generated evidence.

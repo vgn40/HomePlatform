@@ -14,7 +14,6 @@ public sealed class AddHouseholdMemberWithoutAccountHandlerTests
     [InlineData("outsider", AddHouseholdMemberWithoutAccountOutcome.NotFound)]
     [InlineData("member", AddHouseholdMemberWithoutAccountOutcome.Forbidden)]
     [InlineData("guest", AddHouseholdMemberWithoutAccountOutcome.Forbidden)]
-    [InlineData("owner-role", AddHouseholdMemberWithoutAccountOutcome.Invalid)]
     [InlineData("empty", AddHouseholdMemberWithoutAccountOutcome.Invalid)]
     [InlineData("blank", AddHouseholdMemberWithoutAccountOutcome.Invalid)]
     [InlineData("invalid-role", AddHouseholdMemberWithoutAccountOutcome.Invalid)]
@@ -42,7 +41,6 @@ public sealed class AddHouseholdMemberWithoutAccountHandlerTests
 
         var result = await handler.Handle(new(household.Id,
             scenario == "empty" ? "" : scenario == "blank" ? "   " : "Alma",
-            scenario == "owner-role" ? HouseholdRole.Owner :
             scenario == "invalid-role" ? (HouseholdRole)999 : HouseholdRole.Member));
 
         Assert.Equal(expected, result.Outcome);
@@ -57,6 +55,7 @@ public sealed class AddHouseholdMemberWithoutAccountHandlerTests
     [Theory]
     [InlineData(HouseholdRole.Member)]
     [InlineData(HouseholdRole.Guest)]
+    [InlineData(HouseholdRole.Owner)]
     public async Task Handle_owner_creates_person_and_membership_and_persists_once(HouseholdRole role)
     {
         var ownerId = Guid.NewGuid();

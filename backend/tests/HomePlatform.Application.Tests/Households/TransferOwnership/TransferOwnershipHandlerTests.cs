@@ -7,6 +7,26 @@ namespace HomePlatform.Application.Tests.Households.TransferOwnership;
 
 public sealed class TransferOwnershipHandlerTests
 {
+    [Fact]
+    public async Task Handle_existing_owner_target_returns_clear_invalid_without_mutation_or_update()
+    {
+        var ownerId = Guid.NewGuid();
+        var household = new Household("Home", ownerId);
+        var targetId = Guid.NewGuid();
+        Assert.True(household.AddMember(ownerId, HouseholdRole.Owner, targetId).IsSuccess);
+        var target = household.Members.Single(m => m.PersonId == targetId);
+        var before = CaptureState(household);
+        var repository = new RecordingHouseholdRepository(household, ownerId);
+        var handler = CreateHandler(repository, ownerId);
+
+        var result = await handler.Handle(new TransferOwnershipCommand(household.Id, target.MembershipId));
+
+        Assert.Equal(TransferOwnershipOutcome.Invalid, result.Outcome);
+        Assert.Equal("New owner is already an owner of this household.", result.ErrorMessage);
+        Assert.Equal(0, repository.UpdateCallCount);
+        AssertUnchanged(household, before);
+    }
+
     private static readonly Guid LoginlessPersonId = Guid.NewGuid();
     [Fact]
     public async Task Handle_with_unauthenticated_account_does_not_read_or_update()
@@ -554,7 +574,8 @@ public sealed class TransferOwnershipHandlerTests
     }
 
     private sealed class RecordingHouseholdRepository(
-        Household? household = null)
+        Household? household = null,
+        Guid? actingOwnerPersonId = null)
         : IHouseholdRepository
     {
         public Task DeleteAsync(
@@ -567,8 +588,9 @@ public sealed class TransferOwnershipHandlerTests
             household?.Members
                 .Single(
                     member =>
-                        member.Role ==
-                        HouseholdRole.Owner)
+                        actingOwnerPersonId is not null
+                            ? member.PersonId == actingOwnerPersonId
+                            : member.Role == HouseholdRole.Owner)
                 .MembershipId;
 
         private readonly Guid? _targetMembershipId =
