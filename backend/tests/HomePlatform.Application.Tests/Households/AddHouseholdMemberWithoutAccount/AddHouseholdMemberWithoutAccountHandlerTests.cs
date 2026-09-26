@@ -52,10 +52,109 @@ public sealed class AddHouseholdMemberWithoutAccountHandlerTests
         Assert.Equal(updatedAt, household.UpdatedAt);
     }
 
+    [Fact]
+    public async Task Handle_owner_adding_accountless_owner_returns_invalid_without_persisting_or_mutating_household()
+    {
+        var ownerId = Guid.NewGuid();
+        var household = new Household("Home", ownerId);
+        var actorId = ownerId;
+        var before = household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray();
+        var updatedAt = household.UpdatedAt;
+        var repository = new RecordingHouseholdRepository(household);
+        var persistence = new RecordingPersistence();
+        var handler = new AddHouseholdMemberWithoutAccountHandler(repository,
+            new FakeCurrentPerson(actorId), persistence);
+
+        var result = await handler.Handle(new(household.Id, "Alma", HouseholdRole.Owner));
+
+        Assert.Equal(AddHouseholdMemberWithoutAccountOutcome.Invalid, result.Outcome);
+        Assert.Equal("A person without an account cannot be an owner.", result.Error);
+        Assert.Null(result.PersonId);
+        Assert.Null(result.MembershipId);
+        Assert.Equal(0, persistence.CallCount);
+        Assert.Equal(1, repository.GetCallCount);
+        Assert.Equal(before, household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray());
+        Assert.Equal(updatedAt, household.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task Handle_outsider_with_owner_role_returns_not_found_without_persisting_or_mutating_household()
+    {
+        var ownerId = Guid.NewGuid();
+        var household = new Household("Home", ownerId);
+        var actorId = Guid.NewGuid();
+        var before = household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray();
+        var updatedAt = household.UpdatedAt;
+        var repository = new RecordingHouseholdRepository(household);
+        var persistence = new RecordingPersistence();
+        var handler = new AddHouseholdMemberWithoutAccountHandler(repository,
+            new FakeCurrentPerson(actorId), persistence);
+
+        var result = await handler.Handle(new(household.Id, "Alma", HouseholdRole.Owner));
+
+        Assert.Equal(AddHouseholdMemberWithoutAccountOutcome.NotFound, result.Outcome);
+        Assert.Null(result.PersonId);
+        Assert.Null(result.MembershipId);
+        Assert.Equal(0, persistence.CallCount);
+        Assert.Equal(1, repository.GetCallCount);
+        Assert.Equal(before, household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray());
+        Assert.Equal(updatedAt, household.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task Handle_outsider_with_invalid_display_name_returns_not_found_without_persisting_or_mutating_household()
+    {
+        var ownerId = Guid.NewGuid();
+        var household = new Household("Home", ownerId);
+        var actorId = Guid.NewGuid();
+        var before = household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray();
+        var updatedAt = household.UpdatedAt;
+        var repository = new RecordingHouseholdRepository(household);
+        var persistence = new RecordingPersistence();
+        var handler = new AddHouseholdMemberWithoutAccountHandler(repository,
+            new FakeCurrentPerson(actorId), persistence);
+
+        var result = await handler.Handle(new(household.Id, "   ", HouseholdRole.Member));
+
+        Assert.Equal(AddHouseholdMemberWithoutAccountOutcome.NotFound, result.Outcome);
+        Assert.Null(result.PersonId);
+        Assert.Null(result.MembershipId);
+        Assert.Equal(0, persistence.CallCount);
+        Assert.Equal(1, repository.GetCallCount);
+        Assert.Equal(before, household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray());
+        Assert.Equal(updatedAt, household.UpdatedAt);
+    }
+
     [Theory]
     [InlineData(HouseholdRole.Member)]
     [InlineData(HouseholdRole.Guest)]
-    [InlineData(HouseholdRole.Owner)]
+    public async Task Handle_non_owner_with_invalid_display_name_returns_forbidden_without_persisting_or_mutating_household(HouseholdRole currentRole)
+    {
+        var ownerId = Guid.NewGuid();
+        var household = new Household("Home", ownerId);
+        var actorId = Guid.NewGuid();
+        Assert.True(household.AddMember(ownerId, currentRole, actorId).IsSuccess);
+        var before = household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray();
+        var updatedAt = household.UpdatedAt;
+        var repository = new RecordingHouseholdRepository(household);
+        var persistence = new RecordingPersistence();
+        var handler = new AddHouseholdMemberWithoutAccountHandler(repository,
+            new FakeCurrentPerson(actorId), persistence);
+
+        var result = await handler.Handle(new(household.Id, "   ", HouseholdRole.Member));
+
+        Assert.Equal(AddHouseholdMemberWithoutAccountOutcome.Forbidden, result.Outcome);
+        Assert.Null(result.PersonId);
+        Assert.Null(result.MembershipId);
+        Assert.Equal(0, persistence.CallCount);
+        Assert.Equal(1, repository.GetCallCount);
+        Assert.Equal(before, household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray());
+        Assert.Equal(updatedAt, household.UpdatedAt);
+    }
+
+    [Theory]
+    [InlineData(HouseholdRole.Member)]
+    [InlineData(HouseholdRole.Guest)]
     public async Task Handle_owner_creates_person_and_membership_and_persists_once(HouseholdRole role)
     {
         var ownerId = Guid.NewGuid();

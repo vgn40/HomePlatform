@@ -43,6 +43,25 @@ public sealed class AddHouseholdMemberWithoutAccountHandler
             return AddHouseholdMemberWithoutAccountResult.NotFound();
         }
 
+        var currentMembership = household.Members.SingleOrDefault(
+            member => member.PersonId == currentPersonId.Value);
+
+        if (currentMembership is null)
+        {
+            return AddHouseholdMemberWithoutAccountResult.NotFound();
+        }
+
+        if (currentMembership.Role != HouseholdRole.Owner)
+        {
+            return AddHouseholdMemberWithoutAccountResult.Forbidden();
+        }
+
+        if (command.Role == HouseholdRole.Owner)
+        {
+            return AddHouseholdMemberWithoutAccountResult.Invalid(
+                "A person without an account cannot be an owner.");
+        }
+
         Person person;
 
         try
