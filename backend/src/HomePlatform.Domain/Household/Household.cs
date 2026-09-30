@@ -10,6 +10,7 @@ public class Household
     public string Name { get; private set; }
     public DateTime CreatedAt { get; }
     public DateTime UpdatedAt { get; private set; }
+    public Guid OwnershipVersion { get; private set; }
 
     public IReadOnlyCollection<HouseholdMember> Members =>
         _members.AsReadOnly();
@@ -52,6 +53,7 @@ public class Household
         Name = normalizedName;
         CreatedAt = now;
         UpdatedAt = now;
+        OwnershipVersion = Guid.NewGuid();
 
         var owner = new HouseholdMember(
             HouseholdRole.Owner,
@@ -94,7 +96,15 @@ public class Household
             personId);
 
         _members.Add(member);
-        UpdatedAt = DateTime.UtcNow;
+
+        if (role == HouseholdRole.Owner)
+        {
+            MarkOwnershipUpdated();
+        }
+        else
+        {
+            MarkUpdated();
+        }
 
         return AddHouseholdMemberDomainResult.Success();
     }
@@ -167,7 +177,7 @@ public class Household
 
         newOwner.ChangeRole(HouseholdRole.Owner);
         currentMember.ChangeRole(HouseholdRole.Member);
-        UpdatedAt = DateTime.UtcNow;
+        MarkOwnershipUpdated();
 
         return TransferOwnershipDomainResult.Success();
     }
@@ -185,7 +195,9 @@ public class Household
                 LeaveHouseholdError.CurrentPersonNotMember);
         }
 
-        if (currentMember.Role == HouseholdRole.Owner &&
+        var isOwner = currentMember.Role == HouseholdRole.Owner;
+
+        if (isOwner &&
             !_members.Any(member =>
                 member.PersonId != currentPersonId &&
                 member.Role == HouseholdRole.Owner))
@@ -195,7 +207,15 @@ public class Household
         }
 
         _members.Remove(currentMember);
-        UpdatedAt = DateTime.UtcNow;
+
+        if (isOwner)
+        {
+            MarkOwnershipUpdated();
+        }
+        else
+        {
+            MarkUpdated();
+        }
 
         return LeaveHouseholdDomainResult.Success();
     }
@@ -220,5 +240,16 @@ public class Household
         }
 
         return CloseHouseholdDomainResult.Success();
+    }
+
+    private void MarkUpdated()
+    {
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    private void MarkOwnershipUpdated()
+    {
+        UpdatedAt = DateTime.UtcNow;
+        OwnershipVersion = Guid.NewGuid();
     }
 }
