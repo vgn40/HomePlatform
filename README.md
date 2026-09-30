@@ -1,160 +1,117 @@
 # HomePlatform
 
-HomePlatform helps people coordinate shared life across households, relationships
-and changing family structures. It is an early-stage .NET/backend portfolio
-project, evolving through small product flows and explicit domain decisions.
+HomePlatform is a C#/.NET backend portfolio project for modelling people and shared households, built with ASP.NET Core, Entity Framework Core and PostgreSQL as a layered monolith. I am building it to develop my backend engineering skills through concrete account workflows, explicit domain rules and a separation between application logic and infrastructure. The focus is currently the backend foundation; a user-facing client and everyday household features are future work.
 
-The direction covers couples and households without children, families with
-children, blended families, separated parents, grandparents and other caregivers.
-People should retain their identity as family structures change, including a
-child participating in more than one Household. These are product goals, not
-implemented capabilities. Start with the [product scope](docs/product/PRODUCT-SCOPE.md).
+## Current capabilities
 
-**TARGET:** Account supplies credentials; Person represents the human being;
-HouseholdMembership represents participation in one Household. Relationships
-between Persons are independent of co-residence. Person and Relationship are
-accepted targets; CareCircle is a future care context. None exists in code yet.
+- **Accounts:** registration with email and password, bearer-token sign-in and token refresh through ASP.NET Core Identity. Registration creates a linked Person.
+- **Household creation:** the authenticated account's Person becomes the initial Owner.
+- **Members without accounts:** an Owner can create a Person and add them as a Member or Guest.
+- **Multiple owners:** the domain model supports multiple Owners. An Owner can leave when another Owner remains; the last Owner cannot leave.
+- **Ownership transfer:** an Owner can transfer their role to an existing non-owner membership whose Person has an Account. The acting Owner becomes a Member; other Owners retain their roles.
+- **Household closure:** any Owner can close a household, deleting the household and its memberships while retaining Accounts and Persons.
 
-## AS-IS implementation — source reviewed 2026-09-20
-
-Source baseline: committed `main@7162c35`.
-
-- Account Registration, bearer sign-in and Refresh are implemented and mapped
-  in all environments. Refresh validates expiry and the Identity security stamp.
-- CreateHousehold, TransferOwnership, LeaveHousehold and CloseHousehold have
-  Domain/Application/persistence/HTTP implementations. **All Household routes
-  are Testing-only**, including with real bearer authentication.
-- Account and Membership identities are separate. The nullable AccountId FK to
-  Identity enforces reference integrity without automatic Account-delete cascade.
-- Transfer/leave/close check current Household membership/Owner authority.
-  Nonmembers receive 404; known Member/Guest actors receive 403 for Owner-only
-  operations. Protected-request Account validity and optimistic concurrency
-  remain unfinished.
-- The affected Domain/Application/PostgreSQL integration slice passed 117 tests
-  locally on 2026-09-20; see [verification](docs/architecture/roadmap/NEXT-STEPS.md#verified-locally).
-  Hosted CI, deployment and operational controls were not verified.
-
-DeleteAccount is **not implemented in this committed snapshot**; separate
-uncommitted implementation/test work exists in the reviewed working tree.
-Household authorization/resource concealment is committed in `7162c35`.
-DeleteAccount remains separate, uncommitted and unchanged.
-Frontend, invitations/linking, Tasks, Shopping and Events are not implemented.
-
-Read [next steps](docs/architecture/roadmap/NEXT-STEPS.md) for the sole execution
-order and verification boundaries, and [target architecture](docs/architecture/target/TARGET-ARCHITECTURE.md)
-for the explicit current/future split.
-
-## Technology
-
-- C# 14 and .NET 10 LTS
-- ASP.NET Core
-- Entity Framework Core with Npgsql
-- PostgreSQL 18
-- xUnit and Testcontainers
-- planned React Native, Expo, and TypeScript client
+Account routes are mapped in all environments. **Household HTTP routes are currently enabled only in the `Testing` environment.** There is no household read API or complete invitation/onboarding flow yet. Multiple-owner rules are implemented and covered by tests, but there is no API workflow for adding another Owner.
 
 ## Architecture
 
-HomePlatform targets a modular monolith with four production projects:
+The backend is a layered monolith with four projects:
 
 ```text
-Domain         -> no project/package references
-Application    -> Domain
-Infrastructure -> Application + Domain
-Api            -> Application + Infrastructure
+Api → Application → Domain
+ │        ▲          ▲
+ └→ Infrastructure ─┘
 ```
 
-Domain remains framework-independent. Application owns explicit use cases and
-ports. Infrastructure owns persistence and technical adapters. API is the HTTP
-boundary and composition root. Business modules remain inside this deployment
-until evidence justifies a more complex topology.
+Arrows indicate project dependencies.
 
-The **AS-IS** identity model separates Account and Membership under
-[ADR 0006](docs/architecture/adr/0006-separate-account-and-household-membership-identity.md).
-[ADR 0007](docs/architecture/adr/0007-person-as-stable-human-identity.md)
-adds Person as the accepted **TARGET**, preserving Membership as participation
-and ASP.NET Core Identity in Infrastructure. The exact Account–Person link
-and migration are still to be designed. [NEXT-STEPS](docs/architecture/roadmap/NEXT-STEPS.md)
-prioritizes that incremental foundation; security/concurrency and release work
-remain visible in the [debt register](docs/architecture/roadmap/TECHNICAL-DEBT-REGISTER.md).
+| Project | Responsibility |
+| --- | --- |
+| `HomePlatform.Api` | HTTP endpoints, request/response mapping, authentication context and dependency wiring. |
+| `HomePlatform.Application` | Use-case handlers, input validation and interfaces for persistence and identity services. |
+| `HomePlatform.Domain` | Person, Household and membership rules, including ownership and leaving a household. |
+| `HomePlatform.Infrastructure` | EF Core persistence, PostgreSQL mappings and ASP.NET Core Identity adapters. |
 
-## Repository layout
+Domain has no package or project references and remains independent of ASP.NET Core, EF Core and infrastructure concerns. Application depends on Domain and defines the interfaces implemented by Infrastructure, keeping use-case logic separate from database and authentication details.
 
-```text
-backend/src/    production .NET projects
-backend/tests/  unit, dependency, and PostgreSQL integration tests
-frontend/       planned client
-docs/           architecture, roadmap, product, and research documentation
-```
+## Domain model
 
-## Documentation
+| Concept | Meaning |
+| --- | --- |
+| **Account** | Authentication and credentials, implemented as an ASP.NET Core Identity `ApplicationUser` in Infrastructure. Each Account links to one Person. |
+| **Person** | The human identity, independent of login credentials. A Person can exist without an Account. |
+| **Household** | A group of people whose membership and ownership rules are managed together. |
+| **HouseholdMember** | A Person's participation in a Household, with its own `MembershipId`, a required `PersonId` and an Owner, Member or Guest role. |
 
-Start with the [documentation index](docs/README.md). The primary documents are:
+This separation lets a household include someone who does not sign in, while keeping their identity distinct from their role in that household. A Person can participate in multiple households, but only once in each household.
 
-- [target architecture](docs/architecture/target/TARGET-ARCHITECTURE.md)
-- [context map](docs/architecture/target/CONTEXT-MAP.md)
-- [domain model](docs/architecture/target/DOMAIN-MODEL.md)
-- [historical six-month plan](docs/architecture/roadmap/HOMEPLATFORM-6-MONTH-MASTERPLAN.md)
-- [current next steps](docs/architecture/roadmap/NEXT-STEPS.md)
-- [security roadmap](docs/architecture/roadmap/SECURITY-ROADMAP.md)
-- [technical-debt register](docs/architecture/roadmap/TECHNICAL-DEBT-REGISTER.md)
+## Technology
 
-## Local prerequisites
+- C# and .NET 10; SDK baseline `10.0.400` in `global.json`.
+- ASP.NET Core Minimal APIs, OpenAPI and ASP.NET Core Identity.
+- Entity Framework Core 10 with the Npgsql PostgreSQL provider.
+- PostgreSQL `18.6-alpine` in Docker Compose and integration tests.
+- xUnit, ASP.NET Core `WebApplicationFactory` and Testcontainers.
+- GitHub Actions for build, tests, formatting, dependency auditing and migration checks.
 
-- .NET SDK 10.0.400 or a newer .NET 10 feature band
-- Docker with Docker Compose
-- Git
+Package versions are centrally managed in `backend/Directory.Packages.props`.
 
-## Start PostgreSQL
+## Testing
+
+Tests are organised under `backend/tests/`:
+
+- **Domain tests** exercise identity validation, membership and ownership rules, including multiple Owners and the last-Owner restriction.
+- **Application tests** check handler validation, authorisation decisions and interactions with persistence/identity interfaces using test doubles.
+- **Integration tests** use PostgreSQL containers to check persistence, constraints and migrations. HTTP tests use `WebApplicationFactory` to verify authentication, status codes, error responses and OpenAPI contracts.
+
+Dependency tests also check that inner layers do not reference outer projects. Integration tests start their own PostgreSQL containers and require Docker.
+
+## Project status and next steps
+
+HomePlatform is under development. Planned next steps include:
+
+- Household read flows and a complete invitation/onboarding flow for existing users.
+- Complete optimistic concurrency handling for household membership and ownership changes.
+- An account deletion lifecycle.
+- A first client and a practical shared-household feature.
+
+## Running locally
+
+Prerequisites: Git, Docker with Docker Compose, and .NET SDK `10.0.400` or a later .NET 10 feature band allowed by `global.json`.
+
+Run these commands from the repository root:
 
 ```bash
-docker compose up -d
+docker compose up -d --wait postgres
+dotnet tool restore
+dotnet restore backend/HomePlatform.slnx
+dotnet build backend/HomePlatform.slnx --no-restore
+
+export ConnectionStrings__Database='Host=localhost;Port=5432;Database=homeplatform;Username=homeplatform;Password=homeplatform-dev'
+
+dotnet tool run dotnet-ef database update \
+  --project backend/src/HomePlatform.Infrastructure/HomePlatform.Infrastructure.csproj \
+  --startup-project backend/src/HomePlatform.Api/HomePlatform.Api.csproj
+
+dotnet run --project backend/src/HomePlatform.Api --launch-profile http
 ```
 
-Local defaults are documented in `.env.example`. Copy it to `.env` only when
-you need to override them.
+The API runs at `http://localhost:5080` in Development. Use `/health` for liveness, `/ready` for database connectivity and `/openapi/v1.json` for the OpenAPI document.
 
-## Start the API
+The connection string above matches the local Compose defaults. If you override PostgreSQL settings using `.env.example`, update the exported connection string too; the API does not load Compose's `.env` file automatically.
+
+To try the household routes locally, stop the API and run it in Testing with the same exported connection string:
 
 ```bash
-cd backend
-dotnet restore
-dotnet run --project src/HomePlatform.Api
+ASPNETCORE_ENVIRONMENT=Testing dotnet run \
+  --project backend/src/HomePlatform.Api \
+  --no-launch-profile --urls http://localhost:5080
 ```
 
-The default development URL is `http://localhost:5080`.
+Household routes require a bearer access token obtained through account sign-in.
 
-- Liveness: `GET http://localhost:5080/health`
-- Readiness: `GET http://localhost:5080/ready`
-- Development OpenAPI: `GET http://localhost:5080/openapi/v1.json`
-
-Override the database connection with the standard .NET configuration key:
+Run all tests with Docker running:
 
 ```bash
-ConnectionStrings__Database='Host=localhost;Port=5432;Database=homeplatform;Username=homeplatform;Password=homeplatform-dev' dotnet run --project src/HomePlatform.Api
+dotnet test backend/HomePlatform.slnx --no-build
 ```
-
-## Build and test
-
-```bash
-cd backend
-dotnet restore
-dotnet build HomePlatform.slnx --no-restore
-dotnet test HomePlatform.slnx --no-build
-```
-
-Docker must be running for PostgreSQL/Testcontainers integration tests. A
-historical green result is not treated as current evidence; verify the live
-working tree before starting the next roadmap step.
-
-## Migrations
-
-Four migrations are committed: `20260830093643_InitialHousehold`,
-`20260830185551_LimitHouseholdNameLength`,
-`20260904100319_AddIdentityPersistence`, and
-`20260913183105_AddHouseholdMemberAccountReference`. The last adds the AccountId
-lookup index and guarding FK. The repository pins dotnet-ef 10.0.11.
-Testcontainers tests and CI define migration checks; no fresh model-drift or
-migration execution is claimed by this documentation review. See the
-[current next steps](docs/architecture/roadmap/NEXT-STEPS.md) before extending
-the schema.
