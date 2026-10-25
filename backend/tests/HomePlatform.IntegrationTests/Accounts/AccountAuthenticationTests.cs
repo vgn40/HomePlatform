@@ -11,7 +11,6 @@ using HomePlatform.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests.Accounts;
 
@@ -20,12 +19,7 @@ public sealed class AccountAuthenticationTests : IAsyncLifetime
     private const string Password = "ValidPassword123!";
 
     // xUnit creates a fresh instance/container for every test case, as in registration tests.
-    private readonly PostgreSqlContainer _postgres =
-        new PostgreSqlBuilder("postgres:18.6-alpine")
-            .WithDatabase("homeplatform")
-            .WithUsername("homeplatform")
-            .WithPassword("homeplatform-dev")
-            .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
 
     private HomePlatformApiFactory? _factory;
     private HttpClient? _client;

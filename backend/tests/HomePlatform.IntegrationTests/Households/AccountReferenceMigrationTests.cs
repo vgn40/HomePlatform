@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests.Households;
 
@@ -14,12 +13,7 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
     private const string AccountReferenceMigration = "20260913183105_AddHouseholdMemberAccountReference";
     private const string AccountReferenceConstraint = "FK_HouseholdMember_AspNetUsers_AccountId";
 
-    private readonly PostgreSqlContainer _postgres =
-        new PostgreSqlBuilder("postgres:18.6-alpine")
-            .WithDatabase("homeplatform")
-            .WithUsername("homeplatform")
-            .WithPassword("homeplatform-dev")
-            .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
 
     private HomePlatformApiFactory? _factory;
     private DbContextOptions<HomePlatformDbContext>? _options;
@@ -217,6 +211,9 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
         await context.Database.MigrateAsync();
         Assert.Equal(4, await context.Set<HouseholdMember>().CountAsync());
         await context.Users.Where(u => u.Id == accountId).ExecuteDeleteAsync();
+        // Isolate the failed Person downgrade: later migrations each roll back
+        // in their own transaction and may already have been removed successfully.
+        await context.GetService<IMigrator>().MigrateAsync("20260921064921_AddPersonFoundation");
         var applied = (await context.Database.GetAppliedMigrationsAsync()).ToArray();
         var failure = await Assert.ThrowsAsync<PostgresException>(() =>
             context.GetService<IMigrator>().MigrateAsync(AccountReferenceMigration));

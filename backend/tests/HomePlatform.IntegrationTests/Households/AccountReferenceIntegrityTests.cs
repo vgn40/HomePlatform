@@ -11,18 +11,12 @@ using HomePlatform.Infrastructure.Identity;
 using HomePlatform.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests.Households;
 
 public sealed class AccountReferenceIntegrityTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres =
-        new PostgreSqlBuilder("postgres:18.6-alpine")
-            .WithDatabase("homeplatform")
-            .WithUsername("homeplatform")
-            .WithPassword("homeplatform-dev")
-            .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
 
     private HomePlatformApiFactory? _factory;
     private DbContextOptions<HomePlatformDbContext>? _options;

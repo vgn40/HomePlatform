@@ -14,7 +14,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests.Accounts;
 
@@ -23,12 +22,7 @@ public sealed class RefreshAccountEndpointTests : IAsyncLifetime
     private const string Password = "ValidPassword123!";
 
     // Keep the same per-case PostgreSQL isolation as the existing account tests.
-    private readonly PostgreSqlContainer _postgres =
-        new PostgreSqlBuilder("postgres:18.6-alpine")
-            .WithDatabase("homeplatform")
-            .WithUsername("homeplatform")
-            .WithPassword("homeplatform-dev")
-            .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
 
     private HomePlatformApiFactory? _factory;
     private HttpClient? _client;

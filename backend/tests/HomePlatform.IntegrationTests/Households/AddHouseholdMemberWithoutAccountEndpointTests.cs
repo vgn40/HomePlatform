@@ -9,17 +9,12 @@ using HomePlatform.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests.Households;
 
 public sealed class AddHouseholdMemberWithoutAccountEndpointTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6-alpine")
-        .WithDatabase("homeplatform")
-        .WithUsername("homeplatform")
-        .WithPassword("homeplatform-dev")
-        .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
     private HomePlatformApiFactory _factory = null!;
     private HttpClient _client = null!;
 
@@ -40,6 +35,7 @@ public sealed class AddHouseholdMemberWithoutAccountEndpointTests : IAsyncLifeti
     [InlineData("guest", HttpStatusCode.Forbidden)]
     [InlineData("empty", HttpStatusCode.BadRequest)]
     [InlineData("blank", HttpStatusCode.BadRequest)]
+    [InlineData("owner", HttpStatusCode.BadRequest)]
     public async Task Add_member_failure_preserves_database(string scenario, HttpStatusCode expected)
     {
         var ownerId = Guid.NewGuid();
@@ -67,7 +63,7 @@ public sealed class AddHouseholdMemberWithoutAccountEndpointTests : IAsyncLifeti
         using var request = CreateRequest(scenario == "missing" ? Guid.NewGuid() : household.Id,
             scenario == "anonymous" ? null : actorId,
             scenario == "empty" ? "" : scenario == "blank" ? "   " : "Alma",
-            HouseholdRole.Member);
+            scenario == "owner" ? HouseholdRole.Owner : HouseholdRole.Member);
 
         using var response = await _client.SendAsync(request);
 
@@ -83,7 +79,6 @@ public sealed class AddHouseholdMemberWithoutAccountEndpointTests : IAsyncLifeti
     [Theory]
     [InlineData(HouseholdRole.Member)]
     [InlineData(HouseholdRole.Guest)]
-    [InlineData(HouseholdRole.Owner)]
     public async Task Add_member_returns_201_and_commits_accountless_person_and_membership(HouseholdRole role)
     {
         var ownerId = Guid.NewGuid();
@@ -110,7 +105,7 @@ public sealed class AddHouseholdMemberWithoutAccountEndpointTests : IAsyncLifeti
         Assert.Equal(body.MembershipId, member.MembershipId);
         Assert.Equal(role, member.Role);
         Assert.Equal(HouseholdRole.Owner, Assert.Single(persisted.Members, m => m.PersonId == ownerId).Role);
-        Assert.Equal(role == HouseholdRole.Owner ? 2 : 1, persisted.Members.Count(m => m.Role == HouseholdRole.Owner));
+        Assert.Single(persisted.Members, m => m.Role == HouseholdRole.Owner);
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<AddHouseholdMemberWithoutAccountHandler>());
         Assert.IsType<AddHouseholdMemberWithoutAccountPersistence>(
             scope.ServiceProvider.GetRequiredService<IAddHouseholdMemberWithoutAccountPersistence>());

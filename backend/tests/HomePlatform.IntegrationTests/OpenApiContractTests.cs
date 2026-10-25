@@ -111,4 +111,23 @@ public sealed class OpenApiContractTests
                     .GetProperty("schema").GetProperty("$ref").GetString());
         }
     }
+    [Theory]
+    [InlineData("/api/households/{householdId}/members/without-account", "post")]
+    [InlineData("/api/households/{householdId}/ownership", "put")]
+    [InlineData("/api/households/{householdId}/membership", "delete")]
+    [InlineData("/api/households/{householdId}", "delete")]
+    public async Task Household_writers_declare_409_problem_details(string path, string method)
+    {
+        await using var factory = new HomePlatformApiFactory(
+            "Host=127.0.0.1;Port=1;Database=unused;Username=unused");
+        using var client = factory.CreateClient();
+        using var response = await client.GetAsync("/openapi/v1.json");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var content = document.RootElement.GetProperty("paths").GetProperty(path)
+            .GetProperty(method).GetProperty("responses").GetProperty("409").GetProperty("content");
+        Assert.Contains(content.EnumerateObject(), item => item.Value.GetProperty("schema")
+            .GetProperty("$ref").GetString() == "#/components/schemas/ProblemDetails");
+    }
+
 }

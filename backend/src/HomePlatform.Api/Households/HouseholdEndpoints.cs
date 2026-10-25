@@ -119,7 +119,9 @@ public static class HouseholdEndpoints
             .Produces(
                 StatusCodes.Status403Forbidden)
             .Produces(
-                StatusCodes.Status404NotFound);
+                StatusCodes.Status404NotFound)
+            .ProducesProblem(
+                StatusCodes.Status409Conflict);
 
         endpoints.MapPut(
                 "/api/households/{householdId:guid}/ownership",
@@ -173,7 +175,9 @@ public static class HouseholdEndpoints
             .Produces(
                 StatusCodes.Status404NotFound)
             .ProducesProblem(
-                StatusCodes.Status400BadRequest);
+                StatusCodes.Status400BadRequest)
+            .ProducesProblem(
+                StatusCodes.Status409Conflict);
 
         endpoints.MapDelete(
                 "/api/households/{householdId:guid}/membership",
@@ -269,7 +273,9 @@ public static class HouseholdEndpoints
             .Produces(
                 StatusCodes.Status403Forbidden)
             .Produces(
-                StatusCodes.Status404NotFound);
+                StatusCodes.Status404NotFound)
+            .ProducesProblem(
+                StatusCodes.Status409Conflict);
 
         return endpoints;
     }

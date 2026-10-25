@@ -10,18 +10,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests.Accounts;
 
 public sealed class RegisterAccountEndpointTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres =
-        new PostgreSqlBuilder("postgres:18.6-alpine")
-            .WithDatabase("homeplatform")
-            .WithUsername("homeplatform")
-            .WithPassword("homeplatform-dev")
-            .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
 
     private HomePlatformApiFactory? _factory;
     private HttpClient? _client;

@@ -9,6 +9,8 @@ using HomePlatform.Infrastructure;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<
+    HouseholdConcurrencyExceptionHandler>();
 builder.Services.AddOpenApi();
 
 builder.Services.AddApplication();

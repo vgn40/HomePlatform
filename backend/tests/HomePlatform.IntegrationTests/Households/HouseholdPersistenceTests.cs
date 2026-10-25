@@ -4,17 +4,12 @@ using HomePlatform.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests.Households;
 
 public sealed class HouseholdPersistenceTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6-alpine")
-        .WithDatabase("homeplatform")
-        .WithUsername("homeplatform")
-        .WithPassword("homeplatform-dev")
-        .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
 
     private DbContextOptions<HomePlatformDbContext>? _options;
     private HomePlatformApiFactory? _factory;

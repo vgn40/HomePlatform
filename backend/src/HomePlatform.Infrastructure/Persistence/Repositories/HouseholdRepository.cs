@@ -1,3 +1,4 @@
+
 using HomePlatform.Application.Households;
 using HomePlatform.Domain.Household;
 using HomePlatform.Infrastructure.Persistence;
@@ -22,8 +23,7 @@ public sealed class HouseholdRepository : IHouseholdRepository
 
         _dbContext.Set<Household>().Add(household);
 
-        await _dbContext.SaveChangesAsync(
-            cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<Household?> GetByIdAsync(
@@ -44,8 +44,11 @@ public sealed class HouseholdRepository : IHouseholdRepository
     {
         ArgumentNullException.ThrowIfNull(household);
 
-        await _dbContext.SaveChangesAsync(
-            cancellationToken);
+        // A membership-only change still needs the root's ownership check.
+        _dbContext.Entry(household).Property(candidate => candidate.UpdatedAt)
+            .IsModified = true;
+
+        await SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(
@@ -56,7 +59,19 @@ public sealed class HouseholdRepository : IHouseholdRepository
 
         _dbContext.Set<Household>().Remove(household);
 
-        await _dbContext.SaveChangesAsync(
-            cancellationToken);
+        await SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task SaveChangesAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new HouseholdConcurrencyException(exception);
+        }
     }
 }

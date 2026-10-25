@@ -1,16 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using Testcontainers.PostgreSql;
 
 namespace HomePlatform.IntegrationTests;
 
 public sealed class HealthEndpointsTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6-alpine")
-        .WithDatabase("homeplatform")
-        .WithUsername("homeplatform")
-        .WithPassword("homeplatform-dev")
-        .Build();
+    private readonly PostgreSqlTestDatabase _postgres = new();
 
     private HomePlatformApiFactory? _factory;
     private HttpClient? _client;

@@ -1,3 +1,4 @@
+
 using HomePlatform.Domain.Household;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -23,6 +24,11 @@ public sealed class HouseholdConfiguration
 
         builder.Property(household => household.UpdatedAt)
             .IsRequired();
+
+        builder.Property(household => household.OwnershipVersion)
+            .IsRequired()
+            .IsConcurrencyToken()
+            .ValueGeneratedNever();
 
         builder.HasMany(household => household.Members)
             .WithOne()
