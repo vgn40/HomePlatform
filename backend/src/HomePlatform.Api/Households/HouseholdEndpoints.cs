@@ -2,6 +2,8 @@ using HomePlatform.Application.Households.AddHouseholdMemberWithoutAccount;
 using HomePlatform.Application.Households.CloseHousehold;
 using HomePlatform.Application.Households.CreateHousehold;
 using HomePlatform.Application.Households.LeaveHousehold;
+using HomePlatform.Application.Households.ListHouseholds;
+using HomePlatform.Application.Households.GetHousehold;
 using HomePlatform.Application.Households.TransferOwnership;
 
 namespace HomePlatform.Api.Households;
@@ -11,6 +13,60 @@ public static class HouseholdEndpoints
     public static IEndpointRouteBuilder MapHouseholdEndpoints(
         this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapGet(
+                "/api/households",
+                async (
+                    ListHouseholdsHandler handler,
+                    CancellationToken cancellationToken) =>
+                {
+                    var result = await handler.Handle(cancellationToken);
+
+                    return result.Outcome switch
+                    {
+                        ListHouseholdsOutcome.Success when result.Households is not null
+                            => Results.Ok(result.Households),
+                        ListHouseholdsOutcome.Unauthenticated
+                            => Results.Unauthorized(),
+                        _ => throw new InvalidOperationException(
+                            "Unexpected ListHouseholds outcome.")
+                    };
+                })
+            .RequireAuthorization()
+            .WithName("ListHouseholds")
+            .WithTags("Households")
+            .Produces<IReadOnlyList<HouseholdSummaryResponse>>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized);
+
+        endpoints.MapGet(
+                "/api/households/{householdId:guid}",
+                async (
+                    Guid householdId,
+                    GetHouseholdHandler handler,
+                    CancellationToken cancellationToken) =>
+                {
+                    var result = await handler.Handle(
+                        new GetHouseholdQuery(householdId),
+                        cancellationToken);
+
+                    return result.Outcome switch
+                    {
+                        GetHouseholdOutcome.Success when result.Household is not null
+                            => Results.Ok(result.Household),
+                        GetHouseholdOutcome.Unauthenticated
+                            => Results.Unauthorized(),
+                        GetHouseholdOutcome.NotFound
+                            => Results.NotFound(),
+                        _ => throw new InvalidOperationException(
+                            "Unexpected GetHousehold outcome.")
+                    };
+                })
+            .RequireAuthorization()
+            .WithName("GetHousehold")
+            .WithTags("Households")
+            .Produces<HouseholdDetailResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound);
+
         endpoints.MapPost(
                 "/api/households",
                 async (

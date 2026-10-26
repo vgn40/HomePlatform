@@ -42,6 +42,8 @@ public static class DependencyInjection
             .AddAuthentication(IdentityConstants.BearerScheme)
             .AddBearerToken(IdentityConstants.BearerScheme);
 
+        services.AddScoped<IHouseholdQueryService, HouseholdQueryService>();
+
         services.AddScoped<
             IHouseholdRepository,
             HouseholdRepository>();

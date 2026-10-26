@@ -5,6 +5,8 @@ using HomePlatform.Application.Households.AddHouseholdMemberWithoutAccount;
 using HomePlatform.Application.Households.CloseHousehold;
 using HomePlatform.Application.Households.CreateHousehold;
 using HomePlatform.Application.Households.LeaveHousehold;
+using HomePlatform.Application.Households.ListHouseholds;
+using HomePlatform.Application.Households.GetHousehold;
 using HomePlatform.Application.Households.TransferOwnership;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,6 +26,8 @@ public static class DependencyInjection
         services.AddScoped<RefreshAccountValidator>();
         services.AddScoped<RefreshAccountHandler>();
 
+        services.AddScoped<ListHouseholdsHandler>();
+        services.AddScoped<GetHouseholdHandler>();
         services.AddScoped<CreateHouseholdHandler>();
         services.AddScoped<TransferOwnershipHandler>();
         services.AddScoped<LeaveHouseholdHandler>();
