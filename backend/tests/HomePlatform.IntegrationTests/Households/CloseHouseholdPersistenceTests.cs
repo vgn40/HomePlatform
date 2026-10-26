@@ -64,8 +64,13 @@ public sealed class CloseHouseholdPersistenceTests : IAsyncLifetime
         var remaining = await context.Set<Household>().Include(h => h.Members).SingleAsync();
         Assert.Equal(unrelated.Id, remaining.Id);
         Assert.Equal(unrelated.Name, remaining.Name);
-        Assert.Equal(unrelated.CreatedAt, remaining.CreatedAt);
-        Assert.Equal(unrelated.UpdatedAt, remaining.UpdatedAt);
+        // PostgreSQL truncates sub-microsecond ticks when storing timestamps.
+        Assert.Equal(
+            unrelated.CreatedAt.AddTicks(-(unrelated.CreatedAt.Ticks % TimeSpan.TicksPerMicrosecond)),
+            remaining.CreatedAt);
+        Assert.Equal(
+            unrelated.UpdatedAt.AddTicks(-(unrelated.UpdatedAt.Ticks % TimeSpan.TicksPerMicrosecond)),
+            remaining.UpdatedAt);
         Assert.Equal(unrelatedMembers, remaining.Members.OrderBy(m => m.MembershipId)
             .Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray());
         Assert.Equal(unrelatedMembers.Length, await context.Set<HouseholdMember>().CountAsync());
