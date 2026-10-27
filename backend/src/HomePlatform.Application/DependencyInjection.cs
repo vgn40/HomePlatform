@@ -7,6 +7,7 @@ using HomePlatform.Application.Households.CreateHousehold;
 using HomePlatform.Application.Households.LeaveHousehold;
 using HomePlatform.Application.Households.ListHouseholds;
 using HomePlatform.Application.Households.GetHousehold;
+using HomePlatform.Application.Households.RemoveHouseholdMember;
 using HomePlatform.Application.Households.TransferOwnership;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -32,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<TransferOwnershipHandler>();
         services.AddScoped<LeaveHouseholdHandler>();
         services.AddScoped<CloseHouseholdHandler>();
+        services.AddScoped<RemoveHouseholdMemberHandler>();
         services.AddScoped<AddHouseholdMemberWithoutAccountHandler>();
 
         return services;

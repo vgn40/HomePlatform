@@ -4,6 +4,7 @@ using HomePlatform.Application.Households.CreateHousehold;
 using HomePlatform.Application.Households.LeaveHousehold;
 using HomePlatform.Application.Households.ListHouseholds;
 using HomePlatform.Application.Households.GetHousehold;
+using HomePlatform.Application.Households.RemoveHouseholdMember;
 using HomePlatform.Application.Households.TransferOwnership;
 
 namespace HomePlatform.Api.Households;
@@ -234,6 +235,41 @@ public static class HouseholdEndpoints
                 StatusCodes.Status400BadRequest)
             .ProducesProblem(
                 StatusCodes.Status409Conflict);
+
+        endpoints.MapDelete(
+                "/api/households/{householdId:guid}/members/{membershipId:guid}",
+                async (
+                    Guid householdId,
+                    Guid membershipId,
+                    RemoveHouseholdMemberHandler handler,
+                    CancellationToken cancellationToken) =>
+                {
+                    var result = await handler.Handle(
+                        new RemoveHouseholdMemberCommand(householdId, membershipId),
+                        cancellationToken);
+
+                    return result.Outcome switch
+                    {
+                        RemoveHouseholdMemberOutcome.Success => Results.NoContent(),
+                        RemoveHouseholdMemberOutcome.Unauthenticated => Results.Unauthorized(),
+                        RemoveHouseholdMemberOutcome.NotFound => Results.NotFound(),
+                        RemoveHouseholdMemberOutcome.Forbidden => Results.Forbid(),
+                        RemoveHouseholdMemberOutcome.Invalid => Results.Problem(
+                            title: "Cannot remove household member",
+                            detail: result.ErrorMessage,
+                            statusCode: StatusCodes.Status409Conflict),
+                        _ => throw new InvalidOperationException(
+                            "Unexpected RemoveHouseholdMember outcome.")
+                    };
+                })
+            .RequireAuthorization()
+            .WithName("RemoveHouseholdMember")
+            .WithTags("Households")
+            .Produces(StatusCodes.Status204NoContent)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status403Forbidden)
+            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict);
 
         endpoints.MapDelete(
                 "/api/households/{householdId:guid}/membership",

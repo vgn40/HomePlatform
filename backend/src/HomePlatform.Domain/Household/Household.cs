@@ -222,6 +222,52 @@ public class Household
         return LeaveHouseholdDomainResult.Success();
     }
 
+    public RemoveHouseholdMemberDomainResult RemoveMember(
+        Guid currentPersonId,
+        Guid membershipId)
+    {
+        var currentMember = _members.FirstOrDefault(
+            member => member.PersonId == currentPersonId);
+
+        if (currentMember is null)
+        {
+            return RemoveHouseholdMemberDomainResult.Failure(
+                RemoveHouseholdMemberError.CurrentPersonNotMember);
+        }
+
+        if (currentMember.Role != HouseholdRole.Owner)
+        {
+            return RemoveHouseholdMemberDomainResult.Failure(
+                RemoveHouseholdMemberError.CurrentPersonNotOwner);
+        }
+
+        var target = _members.FirstOrDefault(
+            member => member.MembershipId == membershipId);
+
+        if (target is null)
+        {
+            return RemoveHouseholdMemberDomainResult.Failure(
+                RemoveHouseholdMemberError.MembershipNotFound);
+        }
+
+        if (target.MembershipId == currentMember.MembershipId)
+        {
+            return RemoveHouseholdMemberDomainResult.Failure(
+                RemoveHouseholdMemberError.CannotRemoveSelf);
+        }
+
+        if (target.Role == HouseholdRole.Owner)
+        {
+            return RemoveHouseholdMemberDomainResult.Failure(
+                RemoveHouseholdMemberError.CannotRemoveOwner);
+        }
+
+        _members.Remove(target);
+        MarkUpdated();
+
+        return RemoveHouseholdMemberDomainResult.Success();
+    }
+
     public CloseHouseholdDomainResult Close(
         Guid currentPersonId)
     {
