@@ -355,9 +355,16 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
         return JsonSerializer.Serialize(new
         {
             Households = (await db.Set<Household>().AsNoTracking().Include(h => h.Members).ToListAsync())
-                .OrderBy(h => h.Id).Select(h => new { h.Id, h.Name, h.CreatedAt, h.UpdatedAt,
-                    h.OwnershipVersion, Members = h.Members.OrderBy(m => m.MembershipId)
-                        .Select(m => new { m.MembershipId, m.PersonId, m.Role }) }),
+                .OrderBy(h => h.Id).Select(h => new
+                {
+                    h.Id,
+                    h.Name,
+                    h.CreatedAt,
+                    h.UpdatedAt,
+                    h.OwnershipVersion,
+                    Members = h.Members.OrderBy(m => m.MembershipId)
+                        .Select(m => new { m.MembershipId, m.PersonId, m.Role })
+                }),
             People = (await db.Set<Person>().AsNoTracking().ToListAsync()).OrderBy(p => p.Id),
             Accounts = await db.Users.AsNoTracking().OrderBy(u => u.Id).Select(u => new { u.Id, u.PersonId }).ToListAsync()
         });

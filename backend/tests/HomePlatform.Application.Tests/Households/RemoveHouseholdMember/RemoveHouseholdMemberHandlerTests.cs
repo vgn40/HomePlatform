@@ -23,8 +23,13 @@ public sealed class RemoveHouseholdMemberHandlerTests
         var household = new Household("Home", owner);
         Assert.True(household.AddMember(owner, scenario == "guest" ? HouseholdRole.Guest : HouseholdRole.Member, member).IsSuccess);
         Assert.True(household.AddMember(owner, HouseholdRole.Owner, Guid.NewGuid()).IsSuccess);
-        var actor = scenario switch { "anonymous" => (Guid?)null, "outsider" => Guid.NewGuid(),
-            "member" or "guest" => member, _ => owner };
+        var actor = scenario switch
+        {
+            "anonymous" => (Guid?)null,
+            "outsider" => Guid.NewGuid(),
+            "member" or "guest" => member,
+            _ => owner
+        };
         var target = scenario switch
         {
             "self" => household.Members.Single(m => m.PersonId == owner).MembershipId,

@@ -321,8 +321,15 @@ public sealed class RemoveHouseholdMemberTests : IAsyncLifetime
     {
         await using var db = Context();
         var h = await db.Set<Household>().AsNoTracking().Include(h => h.Members).SingleAsync(h => h.Id == id);
-        return JsonSerializer.Serialize(new { h.Id, h.Name, h.CreatedAt, h.UpdatedAt, h.OwnershipVersion,
-            Members = h.Members.OrderBy(m => m.MembershipId).Select(m => new { m.MembershipId, m.PersonId, m.Role }) });
+        return JsonSerializer.Serialize(new
+        {
+            h.Id,
+            h.Name,
+            h.CreatedAt,
+            h.UpdatedAt,
+            h.OwnershipVersion,
+            Members = h.Members.OrderBy(m => m.MembershipId).Select(m => new { m.MembershipId, m.PersonId, m.Role })
+        });
     }
 
     private async Task<string> AccountStateAsync()
@@ -337,9 +344,12 @@ public sealed class RemoveHouseholdMemberTests : IAsyncLifetime
         var ids = await db.Set<Household>().OrderBy(h => h.Id).Select(h => h.Id).ToArrayAsync();
         var homes = new List<string>();
         foreach (var id in ids) homes.Add(await HouseholdStateAsync(id));
-        return JsonSerializer.Serialize(new { Homes = homes,
+        return JsonSerializer.Serialize(new
+        {
+            Homes = homes,
             People = await db.Set<Person>().AsNoTracking().OrderBy(p => p.Id).ToArrayAsync(),
-            Accounts = await AccountStateAsync() });
+            Accounts = await AccountStateAsync()
+        });
     }
 
     private async Task AssertNoBrokenReferencesAsync()

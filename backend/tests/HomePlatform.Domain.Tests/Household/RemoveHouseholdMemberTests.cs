@@ -50,8 +50,13 @@ public sealed class RemoveHouseholdMemberTests
         var before = household.Members.Select(m => (m.MembershipId, m.PersonId, m.Role)).ToArray();
         var timestamp = household.UpdatedAt;
         var version = household.OwnershipVersion;
-        var actor = scenario switch { "member" => member, "guest" => guest,
-            "outsider" => Guid.NewGuid(), _ => owner };
+        var actor = scenario switch
+        {
+            "member" => member,
+            "guest" => guest,
+            "outsider" => Guid.NewGuid(),
+            _ => owner
+        };
         var target = scenario switch
         {
             "self" => household.Members.Single(m => m.PersonId == owner).MembershipId,
