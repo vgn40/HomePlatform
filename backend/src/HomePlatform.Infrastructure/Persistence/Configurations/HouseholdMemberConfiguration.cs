@@ -27,12 +27,7 @@ public sealed class HouseholdMemberConfiguration
         builder.Property(member => member.Role)
             .IsRequired();
 
-        builder.Property<Guid>("HouseholdId")
-            .IsRequired();
-
-        builder.HasIndex(
-                "HouseholdId",
-                nameof(HouseholdMember.PersonId))
+        builder.HasIndex(member => new { member.HouseholdId, member.PersonId })
             .IsUnique();
     }
 }

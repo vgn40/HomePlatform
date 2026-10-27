@@ -56,6 +56,7 @@ public class Household
         OwnershipVersion = Guid.NewGuid();
 
         var owner = new HouseholdMember(
+            Id,
             HouseholdRole.Owner,
             ownerPersonId);
 
@@ -92,6 +93,7 @@ public class Household
         }
 
         var member = new HouseholdMember(
+            Id,
             role,
             personId);
 

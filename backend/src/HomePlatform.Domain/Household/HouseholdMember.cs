@@ -7,10 +7,12 @@ public class HouseholdMember
     }
 
     public Guid MembershipId { get; }
+    public Guid HouseholdId { get; private set; }
     public Guid PersonId { get; private set; }
     public HouseholdRole Role { get; private set; }
 
     internal HouseholdMember(
+        Guid householdId,
         HouseholdRole role,
         Guid personId)
     {
@@ -28,7 +30,15 @@ public class HouseholdMember
                 nameof(personId));
         }
 
+        if (householdId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Household ID cannot be empty.",
+                nameof(householdId));
+        }
+
         MembershipId = Guid.NewGuid();
+        HouseholdId = householdId;
         PersonId = personId;
         Role = role;
     }

@@ -32,7 +32,7 @@ public sealed class HouseholdConfiguration
 
         builder.HasMany(household => household.Members)
             .WithOne()
-            .HasForeignKey("HouseholdId")
+            .HasForeignKey(member => member.HouseholdId)
             .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
 
