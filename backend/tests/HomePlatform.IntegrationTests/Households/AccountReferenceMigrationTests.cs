@@ -192,14 +192,14 @@ public sealed class AccountReferenceMigrationTests : IAsyncLifetime
             var owner = Assert.Single(members, m => m.MembershipId == original.Members.Single().MembershipId);
             Assert.Equal(users.Single(u => u.Id == accountId).PersonId, owner.PersonId);
             Assert.Equal(HouseholdRole.Owner, owner.Role);
-            Assert.Equal(original.Id, context.Entry(owner).Property<Guid>("HouseholdId").CurrentValue);
+            Assert.Equal(original.Id, owner.HouseholdId);
         }
         var loginless = members.Where(m => loginlessIds.Contains(m.MembershipId)).ToArray();
         Assert.Equal(2, loginless.Select(m => m.PersonId).Distinct().Count());
         Assert.All(loginless, m =>
         {
             Assert.Equal(HouseholdRole.Guest, m.Role);
-            Assert.Equal(first.Id, context.Entry(m).Property<Guid>("HouseholdId").CurrentValue);
+            Assert.Equal(first.Id, m.HouseholdId);
             Assert.DoesNotContain(users, u => u.PersonId == m.PersonId);
         });
         context.ChangeTracker.Clear();

@@ -62,7 +62,7 @@ public sealed class LeaveHouseholdPersistenceTests : IAsyncLifetime
         Assert.Equal(ownerId, Assert.Single(after.Members, member => member.Role == HouseholdRole.Owner).PersonId);
         Assert.False(await context.Set<HouseholdMember>().AnyAsync(member => member.MembershipId == targetId));
         Assert.Equal(before.Length - 1, await context.Set<HouseholdMember>()
-            .CountAsync(member => EF.Property<Guid>(member, "HouseholdId") == household.Id));
+            .CountAsync(member => member.HouseholdId == household.Id));
     }
 
     public async Task DisposeAsync()

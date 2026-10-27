@@ -100,7 +100,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
             expected,
             response.StatusCode);
 
-        AssertUnchanged(
+        HouseholdStateAssertions.AssertUnchanged(
             before,
             await LoadAsync());
     }
@@ -140,7 +140,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
             await response.Content
                 .ReadAsByteArrayAsync());
 
-        AssertUnchanged(
+        HouseholdStateAssertions.AssertUnchanged(
             before
                 .Where(
                     household =>
@@ -165,9 +165,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
             await db.Set<HouseholdMember>()
                 .AnyAsync(
                     member =>
-                        EF.Property<Guid>(
-                            member,
-                            "HouseholdId") ==
+                        member.HouseholdId ==
                         seed.HouseholdId));
 
         Assert.False(
@@ -177,12 +175,23 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
                         membershipIds.Contains(
                             member.MembershipId)));
 
-        foreach (var member in closing.Members)
+        var accountPersonIds = await db.Users.Select(user => user.PersonId).ToArrayAsync();
+        Assert.Equal(3, accountPersonIds.Length);
+        foreach (var personId in accountPersonIds)
+        {
+            Assert.True(await db.Set<HomePlatform.Domain.Person.Person>()
+                .AnyAsync(person => person.Id == personId));
+        }
+        var accountlessMember = Assert.Single(closing.Members,
+            member => !accountPersonIds.Contains(member.PersonId));
+        Assert.False(await db.Set<HomePlatform.Domain.Person.Person>()
+            .AnyAsync(person => person.Id == accountlessMember.PersonId));
+        foreach (var member in before.Where(household => household.Id != seed.HouseholdId)
+            .SelectMany(household => household.Members))
         {
             Assert.True(await db.Set<HomePlatform.Domain.Person.Person>()
                 .AnyAsync(person => person.Id == member.PersonId));
         }
-        Assert.Equal(3, await db.Users.CountAsync());
     }
 
     [Fact]
@@ -211,7 +220,7 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
             HttpStatusCode.NotFound,
             response.StatusCode);
 
-        AssertUnchanged(
+        HouseholdStateAssertions.AssertUnchanged(
             before,
             await LoadAsync());
     }
@@ -301,60 +310,6 @@ public sealed class CloseHouseholdEndpointTests : IAsyncLifetime
                 household =>
                     household.Id)
             .ToListAsync();
-    }
-
-    private static void AssertUnchanged(
-        List<Household> before,
-        List<Household> after)
-    {
-        Assert.Equal(
-            before.Count,
-            after.Count);
-
-        foreach (var original in before)
-        {
-            var current =
-                Assert.Single(
-                    after,
-                    household =>
-                        household.Id == original.Id);
-
-            Assert.Equal(
-                original.Name,
-                current.Name);
-
-            Assert.Equal(
-                original.CreatedAt,
-                current.CreatedAt);
-
-            Assert.Equal(
-                original.UpdatedAt,
-                current.UpdatedAt);
-
-            Assert.Equal(
-                original.Members
-                    .OrderBy(
-                        member =>
-                            member.MembershipId)
-                    .Select(
-                        member =>
-                            (
-                                member.MembershipId,
-                                member.PersonId,
-                                member.Role))
-                    .ToArray(),
-                current.Members
-                    .OrderBy(
-                        member =>
-                            member.MembershipId)
-                    .Select(
-                        member =>
-                            (
-                                member.MembershipId,
-                                member.PersonId,
-                                member.Role))
-                    .ToArray());
-        }
     }
 
     private static HttpRequestMessage CreateRequest(

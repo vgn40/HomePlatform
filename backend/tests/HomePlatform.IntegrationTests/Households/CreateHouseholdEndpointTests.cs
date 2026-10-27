@@ -40,8 +40,6 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     [Fact]
     public async Task Create_household_returns_401_when_anonymous()
     {
-        await ResetDatabaseAsync();
-
         var response = await Client.PostAsJsonAsync(
             "/api/households",
             new { name = "Mit hjem" });
@@ -58,8 +56,6 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     public async Task Create_household_returns_401_for_invalid_test_account_header(
         string accountIdHeader)
     {
-        await ResetDatabaseAsync();
-
         using var request = CreateRequest(
             accountIdHeader,
             body: new { name = "Mit hjem" });
@@ -75,8 +71,6 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     [Fact]
     public async Task Create_household_returns_201_and_persists_authenticated_actor_as_owner()
     {
-        await ResetDatabaseAsync();
-
         var authenticatedAccountId = Guid.NewGuid();
         await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
 
@@ -104,8 +98,6 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     [Fact]
     public async Task Create_household_uses_authenticated_actor_not_request_account_id()
     {
-        await ResetDatabaseAsync();
-
         var authenticatedAccountId = Guid.NewGuid();
         await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
         var callerSelectedAccountId = Guid.NewGuid();
@@ -139,41 +131,16 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
             member => member.PersonId == callerSelectedAccountId);
     }
 
-    [Fact]
-    public async Task Create_household_returns_400_for_invalid_name_and_writes_nothing()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Create_household_returns_400_for_invalid_name_and_writes_nothing(bool exceedsMaxLength)
     {
-        await ResetDatabaseAsync();
-
         var authenticatedAccountId = Guid.NewGuid();
         await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
         using var request = CreateRequest(
             authenticatedAccountId.ToString(),
-            new { name = "   " });
-
-        var response = await Client.SendAsync(request);
-        var problem = await response.Content
-            .ReadFromJsonAsync<ProblemDetails>();
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.NotNull(problem);
-        Assert.Equal(StatusCodes.Status400BadRequest, problem.Status);
-        Assert.Equal("Invalid household", problem.Title);
-        await AssertRowCountsAsync(
-            expectedHouseholds: 0,
-            expectedMembers: 0);
-    }
-
-    [Fact]
-    public async Task Create_household_returns_400_for_name_exceeding_max_length_and_writes_nothing()
-    {
-        await ResetDatabaseAsync();
-
-        var authenticatedAccountId = Guid.NewGuid();
-        await Factory.CreateIdentityAccountAsync(authenticatedAccountId);
-        var name = new string('a', Household.MaxNameLength + 1);
-        using var request = CreateRequest(
-            authenticatedAccountId.ToString(),
-            new { name });
+            new { name = exceedsMaxLength ? new string('a', Household.MaxNameLength + 1) : "   " });
 
         var response = await Client.SendAsync(request);
         var problem = await response.Content
@@ -191,8 +158,6 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
     [Fact]
     public async Task Create_household_route_is_not_exposed_in_production()
     {
-        await ResetDatabaseAsync();
-
         await using var factory = new ProductionApiFactory(
             _postgres.GetConnectionString());
         using var client = factory.CreateClient();
@@ -245,15 +210,6 @@ public sealed class CreateHouseholdEndpointTests : IAsyncLifetime
             accountIdHeader);
 
         return request;
-    }
-
-    private async Task ResetDatabaseAsync()
-    {
-        await using var scope = Factory.Services.CreateAsyncScope();
-        var dbContext = scope.ServiceProvider
-            .GetRequiredService<HomePlatformDbContext>();
-
-        await dbContext.Set<Household>().ExecuteDeleteAsync();
     }
 
     private async Task AssertRowCountsAsync(

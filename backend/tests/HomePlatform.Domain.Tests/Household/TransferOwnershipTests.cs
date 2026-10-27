@@ -4,14 +4,17 @@ namespace HomePlatform.Domain.Tests.Household;
 
 public class TransferOwnershipTests
 {
-    [Fact]
-    public void TransferOwnership_to_person_linked_member_succeeds_and_preserves_memberships()
+    [Theory]
+    [InlineData(HouseholdRole.Member)]
+    [InlineData(HouseholdRole.Guest)]
+    public void TransferOwnership_succeeds_and_preserves_memberships_and_advances_updated_at(
+        HouseholdRole targetRole)
     {
         var ownerPersonId = Guid.NewGuid();
         var household = CreateHousehold(ownerPersonId);
         var target = AddMember(
             household,
-            HouseholdRole.Member,
+            targetRole,
             Guid.NewGuid());
 
         var owner = Assert.Single(
@@ -23,6 +26,9 @@ public class TransferOwnershipTests
         var targetPersonId = target.PersonId;
         var memberCount = household.Members.Count;
 
+        var previousUpdatedAt = SetEarlierUpdatedAt(household);
+        var beforeTransfer = DateTime.UtcNow;
+
         TransferOwnershipDomainResult result =
             household.TransferOwnership(
                 ownerPersonId,
@@ -30,6 +36,9 @@ public class TransferOwnershipTests
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
+        Assert.True(household.UpdatedAt > previousUpdatedAt);
+        Assert.Equal(DateTimeKind.Utc, household.UpdatedAt.Kind);
+        Assert.InRange(household.UpdatedAt, beforeTransfer, DateTime.UtcNow);
         Assert.Equal(memberCount, household.Members.Count);
 
         var updatedOwner = Assert.Single(
@@ -55,42 +64,6 @@ public class TransferOwnershipTests
         Assert.Equal(
             HouseholdRole.Owner,
             updatedTarget.Role);
-    }
-
-    [Fact]
-    public void TransferOwnership_to_person_linked_guest_succeeds()
-    {
-        var ownerPersonId = Guid.NewGuid();
-        var household = CreateHousehold(ownerPersonId);
-
-        var target = AddMember(
-            household,
-            HouseholdRole.Guest,
-            Guid.NewGuid());
-
-        TransferOwnershipDomainResult result =
-            household.TransferOwnership(
-                ownerPersonId,
-                target.MembershipId);
-
-        Assert.True(result.IsSuccess);
-        Assert.Null(result.Error);
-
-        Assert.Equal(
-            HouseholdRole.Owner,
-            Assert.Single(
-                household.Members,
-                member =>
-                    member.MembershipId ==
-                    target.MembershipId).Role);
-
-        Assert.Equal(
-            HouseholdRole.Member,
-            Assert.Single(
-                household.Members,
-                member =>
-                    member.PersonId ==
-                    ownerPersonId).Role);
     }
 
     [Theory]
@@ -191,16 +164,6 @@ public class TransferOwnershipTests
     }
 
     [Fact]
-    public void TransferOwnership_domain_does_not_depend_on_accounts()
-    {
-        var ownerId = Guid.NewGuid();
-        var household = CreateHousehold(ownerId);
-        var target = AddMember(household, HouseholdRole.Member, Guid.NewGuid());
-        Assert.True(household.TransferOwnership(ownerId, target.MembershipId).IsSuccess);
-        Assert.Equal(HouseholdRole.Owner, target.Role);
-    }
-
-    [Fact]
     public void TransferOwnership_fails_when_caller_is_not_a_household_member()
     {
         var household =
@@ -289,75 +252,6 @@ public class TransferOwnershipTests
             household.UpdatedAt);
     }
 
-    [Fact]
-    public void TransferOwnership_updates_household_updated_at_on_success()
-    {
-        var ownerPersonId =
-            Guid.NewGuid();
-
-        var household =
-            CreateHousehold(ownerPersonId);
-
-        var target = AddMember(
-            household,
-            HouseholdRole.Member,
-            Guid.NewGuid());
-
-        var previousUpdatedAt =
-            new DateTime(
-                2000,
-                1,
-                1,
-                0,
-                0,
-                0,
-                DateTimeKind.Utc);
-
-        // Seed an older timestamp without sleeping or adding a production clock API.
-        var updatedAtProperty =
-            typeof(Domain.Household.Household)
-                .GetProperty(
-                    nameof(
-                        Domain.Household.Household.UpdatedAt));
-
-        Assert.NotNull(
-            updatedAtProperty);
-
-        updatedAtProperty.SetValue(
-            household,
-            previousUpdatedAt);
-
-        Assert.Equal(
-            previousUpdatedAt,
-            household.UpdatedAt);
-
-        var beforeTransfer =
-            DateTime.UtcNow;
-
-        TransferOwnershipDomainResult result =
-            household.TransferOwnership(
-                ownerPersonId,
-                target.MembershipId);
-
-        var afterTransfer =
-            DateTime.UtcNow;
-
-        Assert.True(result.IsSuccess);
-
-        Assert.True(
-            household.UpdatedAt >
-            previousUpdatedAt);
-
-        Assert.Equal(
-            DateTimeKind.Utc,
-            household.UpdatedAt.Kind);
-
-        Assert.InRange(
-            household.UpdatedAt,
-            beforeTransfer,
-            afterTransfer);
-    }
-
     [Theory]
     [InlineData(
         HouseholdRole.Member,
@@ -383,9 +277,9 @@ public class TransferOwnershipTests
         null,
         true,
         TransferOwnershipError.CurrentPersonNotMember)]
-    public void TransferOwnership_checks_caller_authorization_before_invalid_target(
+    public void TransferOwnership_checks_caller_authorization_before_target_lookup(
         HouseholdRole? callerRole,
-        bool loginlessTarget,
+        bool targetExists,
         TransferOwnershipError expectedError)
     {
         var household =
@@ -403,11 +297,11 @@ public class TransferOwnershipTests
         }
 
         var targetId =
-            loginlessTarget
+            targetExists
                 ? AddMember(
                     household,
                     HouseholdRole.Member,
-                    null).MembershipId
+                    Guid.NewGuid()).MembershipId
                 : Guid.NewGuid();
 
         var previousUpdatedAt =
@@ -481,14 +375,13 @@ public class TransferOwnershipTests
     private static HouseholdMember AddMember(
         Domain.Household.Household household,
         HouseholdRole role,
-        Guid? personId)
+        Guid personId)
     {
-        personId ??= Guid.NewGuid();
         var result =
             household.AddMember(
                 household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 role,
-                personId.Value);
+                personId);
 
         Assert.True(
             result.IsSuccess);
@@ -497,7 +390,7 @@ public class TransferOwnershipTests
             household.Members,
             member =>
                 member.PersonId ==
-                personId.Value);
+                personId);
     }
 
     private static (

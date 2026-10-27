@@ -55,6 +55,12 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
     [InlineData("transfer-target-left")]
     [InlineData("close-transfer")]
     [InlineData("transfer-close")]
+    [InlineData("remove-promoted")]
+    [InlineData("remove-transfer")]
+    [InlineData("remove-close")]
+    [InlineData("remove-remove")]
+    [InlineData("transfer-removed")]
+    [InlineData("close-add")]
     public async Task Stale_write_returns_409_and_preserves_entire_winning_state(string scenario)
     {
         var household = await SeedAsync(
@@ -76,6 +82,12 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
             "transfer-target-left" => ("transfer", _a, bMembership, "leave", _b, Guid.Empty),
             "close-transfer" => ("close", _a, Guid.Empty, "transfer", _a, bMembership),
             "transfer-close" => ("transfer", _a, bMembership, "close", _a, Guid.Empty),
+            "remove-promoted" => ("remove", _a, bMembership, "transfer", _a, bMembership),
+            "remove-transfer" => ("remove", _a, bMembership, "transfer", _a, cMembership),
+            "remove-close" => ("remove", _a, bMembership, "close", _a, Guid.Empty),
+            "remove-remove" => ("remove", _a, bMembership, "remove", _a, bMembership),
+            "transfer-removed" => ("transfer", _a, bMembership, "remove", _a, bMembership),
+            "close-add" => ("close", _a, Guid.Empty, "add", _a, Guid.Empty),
             _ => throw new ArgumentOutOfRangeException(nameof(scenario))
         };
         _gate.Arm(household.Id);
@@ -88,7 +100,7 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
             Assert.Equal(household.OwnershipVersion, _gate.OriginalVersion);
             using var winnerRequest = Request(household.Id, winnerAction, winnerActor, winnerTarget);
             using var winner = await _client.SendAsync(winnerRequest);
-            Assert.Equal(HttpStatusCode.NoContent, winner.StatusCode);
+            Assert.Equal(winnerAction == "add" ? HttpStatusCode.Created : HttpStatusCode.NoContent, winner.StatusCode);
             winningState = await StateAsync();
         }
         finally
@@ -110,7 +122,7 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
         {
             Assert.Null(remaining);
             Assert.False(await verification.Set<HouseholdMember>()
-                .AnyAsync(m => EF.Property<Guid>(m, "HouseholdId") == household.Id));
+                .AnyAsync(m => m.HouseholdId == household.Id));
         }
         else
         {
@@ -159,12 +171,13 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
         await using var verification = Context();
         var saved = await verification.Set<Household>().Include(h => h.Members)
             .SingleOrDefaultAsync(h => h.Id == household.Id);
-        Assert.True(await verification.Set<Person>().AnyAsync(p => p.Id == person1.Id));
+        Assert.Equal(operation != "close",
+            await verification.Set<Person>().AnyAsync(p => p.Id == person1.Id));
         if (operation == "close")
         {
             Assert.Null(saved);
             Assert.False(await verification.Set<HouseholdMember>()
-                .AnyAsync(m => EF.Property<Guid>(m, "HouseholdId") == household.Id));
+                .AnyAsync(m => m.HouseholdId == household.Id));
             return;
         }
         Assert.NotNull(saved);
@@ -245,24 +258,6 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
         var delete = Assert.Single(_sql.Commands, c => c.Text.Contains("DELETE FROM \"Household\""));
         Assert.Contains("AND \"OwnershipVersion\" =", delete.Text);
         Assert.Contains(household.OwnershipVersion, delete.Values);
-    }
-
-    [Fact]
-    public async Task Update_on_tracked_root_marks_root_columns_but_not_existing_memberships()
-    {
-        var household = await SeedAsync();
-        await using var context = Context(_sql);
-        var loaded = (await new HouseholdRepository(context).GetByIdAsync(household.Id))!;
-        context.Update(loaded);
-        Assert.True(context.Entry(loaded).Property(h => h.Name).IsModified);
-        Assert.True(context.Entry(loaded).Property(h => h.CreatedAt).IsModified);
-        Assert.All(loaded.Members, m => Assert.Equal(EntityState.Unchanged, context.Entry(m).State));
-        _sql.Commands.Clear();
-        await context.SaveChangesAsync();
-        var update = Assert.Single(_sql.Commands, c => c.Text.Contains("UPDATE \"Household\""));
-        Assert.Contains("\"Name\" =", update.Text);
-        Assert.Contains("\"CreatedAt\" =", update.Text);
-        Assert.DoesNotContain("UPDATE \"HouseholdMember\"", update.Text);
     }
 
     [Theory]
@@ -376,6 +371,7 @@ public sealed class HouseholdConcurrencyTests : IAsyncLifetime
             "transfer" => (HttpMethod.Put, "/ownership"),
             "leave" => (HttpMethod.Delete, "/membership"),
             "close" => (HttpMethod.Delete, ""),
+            "remove" => (HttpMethod.Delete, $"/members/{target}"),
             _ => throw new ArgumentOutOfRangeException(nameof(operation))
         };
         var request = new HttpRequestMessage(method, $"/api/households/{householdId}{suffix}");

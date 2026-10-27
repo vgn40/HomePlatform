@@ -65,7 +65,7 @@ public sealed class CloseHouseholdHandlerTests
                 household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var repository =
             new RecordingHouseholdRepository(household);
@@ -82,9 +82,7 @@ public sealed class CloseHouseholdHandlerTests
             CloseHouseholdOutcome.NotFound,
             result.Outcome);
 
-        AssertUnchanged(
-            household,
-            before);
+        before.AssertUnchanged(household);
 
         Assert.Equal(1, repository.GetCallCount);
         Assert.Equal(0, repository.DeleteCallCount);
@@ -113,7 +111,7 @@ public sealed class CloseHouseholdHandlerTests
                 household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId,
                 HouseholdRole.Guest, Guid.NewGuid()).IsSuccess);
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var repository =
             new RecordingHouseholdRepository(household);
@@ -130,9 +128,7 @@ public sealed class CloseHouseholdHandlerTests
             CloseHouseholdOutcome.Forbidden,
             result.Outcome);
 
-        AssertUnchanged(
-            household,
-            before);
+        before.AssertUnchanged(household);
 
         Assert.Equal(1, repository.GetCallCount);
         Assert.Equal(0, repository.DeleteCallCount);
@@ -153,7 +149,7 @@ public sealed class CloseHouseholdHandlerTests
                 HouseholdRole.Member,
                 Guid.NewGuid()).IsSuccess);
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var repository =
             new RecordingHouseholdRepository(household);
@@ -198,9 +194,7 @@ public sealed class CloseHouseholdHandlerTests
             cancellation.Token,
             repository.DeleteCancellationToken);
 
-        AssertUnchanged(
-            household,
-            before);
+        before.AssertUnchanged(household);
     }
 
     [Theory]
@@ -272,71 +266,6 @@ public sealed class CloseHouseholdHandlerTests
 
         Assert.Equal(0, repository.GetCallCount);
         Assert.Equal(0, repository.DeleteCallCount);
-    }
-
-    private static (
-        Guid Id,
-        string Name,
-        DateTime CreatedAt,
-        DateTime UpdatedAt,
-        (
-            Guid MembershipId,
-            Guid PersonId,
-            HouseholdRole Role
-        )[] Members)
-        CaptureState(Household household)
-        => (
-            household.Id,
-            household.Name,
-            household.CreatedAt,
-            household.UpdatedAt,
-            household.Members
-                .OrderBy(
-                    member =>
-                        member.MembershipId)
-                .Select(
-                    member =>
-                        (
-                            member.MembershipId,
-                            member.PersonId,
-                            member.Role))
-                .ToArray());
-
-    private static void AssertUnchanged(
-        Household household,
-        (
-            Guid Id,
-            string Name,
-            DateTime CreatedAt,
-            DateTime UpdatedAt,
-            (
-                Guid MembershipId,
-                Guid PersonId,
-                HouseholdRole Role
-            )[] Members
-        ) before)
-    {
-        var after = CaptureState(household);
-
-        Assert.Equal(
-            before.Id,
-            after.Id);
-
-        Assert.Equal(
-            before.Name,
-            after.Name);
-
-        Assert.Equal(
-            before.CreatedAt,
-            after.CreatedAt);
-
-        Assert.Equal(
-            before.UpdatedAt,
-            after.UpdatedAt);
-
-        Assert.Equal(
-            before.Members,
-            after.Members);
     }
 
     private sealed class FakeCurrentPerson(Guid? personId) : ICurrentPerson

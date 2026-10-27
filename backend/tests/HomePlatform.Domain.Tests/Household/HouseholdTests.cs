@@ -75,27 +75,6 @@ public class HouseholdTests
     }
 
     [Fact]
-    public void Constructor_generates_id()
-    {
-        var household = new Domain.Household.Household(
-            "Mit hjem",
-            Guid.NewGuid());
-
-        Assert.NotEqual(Guid.Empty, household.Id);
-    }
-
-    [Fact]
-    public void Constructor_sets_created_and_updated_at_consistently()
-    {
-        var household = new Domain.Household.Household(
-            "Mit hjem",
-            Guid.NewGuid());
-
-        Assert.NotEqual(default, household.CreatedAt);
-        Assert.Equal(household.CreatedAt, household.UpdatedAt);
-    }
-
-    [Fact]
     public void New_household_contains_exactly_one_owner_membership()
     {
         var ownerPersonId = Guid.NewGuid();
@@ -104,7 +83,12 @@ public class HouseholdTests
             "Mit hjem",
             ownerPersonId);
 
+        Assert.NotEqual(Guid.Empty, household.Id);
+        Assert.NotEqual(default, household.CreatedAt);
+        Assert.Equal(household.CreatedAt, household.UpdatedAt);
+
         var owner = Assert.Single(household.Members);
+        Assert.Equal(household.Id, owner.HouseholdId);
         Assert.NotEqual(Guid.Empty, owner.MembershipId);
         Assert.Equal(ownerPersonId, owner.PersonId);
         Assert.Equal(HouseholdRole.Owner, owner.Role);

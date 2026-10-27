@@ -206,7 +206,7 @@ public sealed class AddHouseholdMemberWithoutAccountEndpointTests : IAsyncLifeti
         await using var verification = _factory.Services.CreateAsyncScope();
         var db = verification.ServiceProvider.GetRequiredService<HomePlatformDbContext>();
         Assert.False(await db.Set<Household>().AnyAsync(h => h.Id == household.Id));
-        Assert.False(await db.Set<HouseholdMember>().AnyAsync(m => EF.Property<Guid>(m, "HouseholdId") == household.Id));
+        Assert.False(await db.Set<HouseholdMember>().AnyAsync(m => m.HouseholdId == household.Id));
         foreach (var id in new[] { originalId, otherId, targetId })
             Assert.True(await db.Set<ApplicationUser>().AnyAsync(u => u.PersonId == id));
 

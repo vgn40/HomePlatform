@@ -66,17 +66,6 @@ public sealed class RefreshAccountEndpointTests : IAsyncLifetime
         await AssertRefreshAndHouseholdAsync(client);
     }
 
-    [Fact]
-    public async Task Refresh_returns_exactly_one_framework_token_response()
-    {
-        var (_, tokens) = await RegisterAndSignInAsync(Client);
-
-        using var response = await Client.PostAsJsonAsync("/api/accounts/refresh",
-            new { refreshToken = tokens.RefreshToken });
-
-        await ReadTokenResponseAsync(response);
-    }
-
     [Theory]
     [InlineData("{}")]
     [InlineData("{\"refreshToken\":null}")]

@@ -23,28 +23,12 @@ public class HouseholdMembersTest
             household.Members,
             membership => membership.PersonId == personId);
         Assert.NotEqual(Guid.Empty, member.MembershipId);
+        Assert.Equal(household.Id, member.HouseholdId);
         Assert.Equal(personId, member.PersonId);
         Assert.Equal(role, member.Role);
         Assert.Equal(2, household.Members.Count);
         Assert.Equal(role == HouseholdRole.Owner ? 2 : 1,
             household.Members.Count(membership => membership.Role == HouseholdRole.Owner));
-    }
-
-    [Fact]
-    public void AddMember_with_another_person_succeeds()
-    {
-        var household = CreateHousehold();
-
-        var result = household.AddMember(household.Members.Single(member => member.Role == HouseholdRole.Owner).PersonId, HouseholdRole.Member, Guid.NewGuid());
-
-        Assert.True(result.IsSuccess);
-
-        var member = Assert.Single(
-            household.Members,
-            membership => membership.Role != HouseholdRole.Owner);
-        Assert.NotEqual(Guid.Empty, member.MembershipId);
-        Assert.NotEqual(Guid.Empty, member.PersonId);
-        Assert.Equal(HouseholdRole.Member, member.Role);
     }
 
     [Fact]
@@ -123,17 +107,6 @@ public class HouseholdMembersTest
         Assert.True(result.IsSuccess);
         Assert.True(household.UpdatedAt > previousUpdatedAt);
         Assert.Equal(DateTimeKind.Utc, household.UpdatedAt.Kind);
-    }
-
-    [Fact]
-    public void Initial_owner_always_has_a_person()
-    {
-        var household = CreateHousehold();
-
-        var owner = Assert.Single(
-            household.Members,
-            membership => membership.Role == HouseholdRole.Owner);
-        Assert.NotEqual(Guid.Empty, owner.PersonId);
     }
 
     [Fact]

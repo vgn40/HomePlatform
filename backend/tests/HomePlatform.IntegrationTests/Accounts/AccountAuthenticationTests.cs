@@ -41,15 +41,6 @@ public sealed class AccountAuthenticationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Sign_in_returns_bearer_access_and_refresh_tokens()
-    {
-        var email = NewEmail();
-        await RegisterAsync(email);
-
-        await SignInAndReadAccessTokenAsync(email);
-    }
-
-    [Fact]
     public async Task Access_token_authenticates_household_request_and_persists_registered_account_as_owner()
     {
         var email = NewEmail();

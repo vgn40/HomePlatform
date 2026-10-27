@@ -9,7 +9,7 @@ public sealed class CloseHouseholdTests
     [InlineData("member", false, CloseHouseholdError.CurrentPersonNotOwner)]
     [InlineData("guest", false, CloseHouseholdError.CurrentPersonNotOwner)]
     [InlineData("nonmember", false, CloseHouseholdError.CurrentPersonNotMember)]
-    [InlineData("loginless", false, CloseHouseholdError.CurrentPersonNotMember)]
+    [InlineData("membership-id", false, CloseHouseholdError.CurrentPersonNotMember)]
     [InlineData("empty-person", false, CloseHouseholdError.CurrentPersonNotMember)]
     public void Close_authorizes_only_owner_and_preserves_entire_aggregate(
         string caller,
@@ -92,9 +92,8 @@ public sealed class CloseHouseholdTests
             "member" => memberId,
             "guest" => guestId,
 
-            // Loginless memberships have no PersonId,
-            // so their MembershipId cannot authorize an person request.
-            "loginless" => household.Members
+            // A MembershipId cannot authorize a request that requires a PersonId.
+            "membership-id" => household.Members
                 .First(
                     member =>
                         member.Role != HouseholdRole.Owner)

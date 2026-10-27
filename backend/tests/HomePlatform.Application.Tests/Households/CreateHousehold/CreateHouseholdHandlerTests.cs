@@ -8,17 +8,6 @@ namespace HomePlatform.Application.Tests.Households.CreateHousehold;
 public sealed class CreateHouseholdHandlerTests
 {
     [Fact]
-    public async Task Handle_with_unresolved_current_person_does_not_create_household()
-    {
-        var repository = new RecordingHouseholdRepository();
-        var handler = new CreateHouseholdHandler(repository,
-            new FakeCurrentPerson(null));
-        var result = await handler.Handle(new CreateHouseholdCommand("Home"));
-        Assert.Equal(CreateHouseholdOutcome.Unauthenticated, result.Outcome);
-        Assert.Empty(repository.AddedHouseholds);
-    }
-
-    [Fact]
     public async Task Handle_creates_and_adds_household_and_returns_its_identity()
     {
         var personId = Guid.NewGuid();

@@ -1,4 +1,5 @@
 using HomePlatform.Domain.Household;
+using HomePlatform.Domain.Person;
 using HomePlatform.Infrastructure.Persistence;
 using HomePlatform.Infrastructure.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -39,12 +40,13 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         var expectedName = household.Name;
         var expectedMembershipId = owner.MembershipId;
         var expectedOwnerAccountId = owner.PersonId;
-        var expectedOwnerRole = owner.Role;
 
-        await using (var writeContext = CreateContext())
+        var interceptor = new SaveChangesInvocationInterceptor();
+        await using (var writeContext = CreateContext(interceptor))
         {
             var repository = new HouseholdRepository(writeContext);
             await repository.AddAsync(household);
+            Assert.Equal(1, interceptor.AsyncInvocationCount);
         }
 
         await using var verificationContext = CreateContext();
@@ -56,9 +58,9 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         Assert.Equal(expectedName, reloaded.Name);
 
         var reloadedOwner = Assert.Single(reloaded.Members);
+        Assert.Equal(expectedHouseholdId, reloadedOwner.HouseholdId);
         Assert.Equal(expectedMembershipId, reloadedOwner.MembershipId);
         Assert.Equal(expectedOwnerAccountId, reloadedOwner.PersonId);
-        Assert.Equal(expectedOwnerRole, reloadedOwner.Role);
         Assert.Equal(HouseholdRole.Owner, reloadedOwner.Role);
     }
 
@@ -139,22 +141,6 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         }
 
         await AssertAggregateWasNotPersisted(household.Id);
-    }
-
-    [Fact]
-    public async Task Repository_add_invokes_save_changes_exactly_once()
-    {
-        var interceptor = new SaveChangesInvocationInterceptor();
-        var ownerAccountId = Guid.NewGuid();
-        await Factory.CreateIdentityAccountAsync(ownerAccountId);
-        var household = new Household("Single save household", ownerAccountId);
-
-        await using var context = CreateContext(interceptor);
-        var repository = new HouseholdRepository(context);
-
-        await repository.AddAsync(household);
-
-        Assert.Equal(1, interceptor.AsyncInvocationCount);
     }
 
     [Fact]
@@ -260,6 +246,60 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         var reloaded = await LoadHousehold(context, household.Id);
 
         Assert.Equal(2, reloaded.Members.Count(member => member.Role == HouseholdRole.Member));
+        Assert.All(reloaded.Members, member => Assert.Equal(household.Id, member.HouseholdId));
+    }
+
+    [Theory]
+    [InlineData(false, HouseholdRole.Member)]
+    [InlineData(false, HouseholdRole.Guest)]
+    [InlineData(true, HouseholdRole.Member)]
+    [InlineData(true, HouseholdRole.Guest)]
+    public async Task Removed_membership_retains_household_id_for_tracking_and_person_cleanup(
+        bool removeByOwner, HouseholdRole role)
+    {
+        var owner = new Person("Owner");
+        var target = new Person("Member without account");
+        var household = new Household("Tracked removal", owner.Id);
+        Assert.True(household.AddMember(owner.Id, role, target.Id).IsSuccess);
+        var membershipId = household.Members.Single(member => member.PersonId == target.Id).MembershipId;
+
+        await using (var setup = CreateContext())
+        {
+            setup.AddRange(owner, target);
+            await new HouseholdRepository(setup).AddAsync(household);
+        }
+
+        await using (var context = CreateContext())
+        {
+            var repository = new HouseholdRepository(context);
+            var loaded = await repository.GetByIdAsync(household.Id);
+            Assert.NotNull(loaded);
+            var member = loaded.Members.Single(candidate => candidate.MembershipId == membershipId);
+            Assert.Equal(household.Id, member.HouseholdId);
+
+            if (removeByOwner)
+                Assert.True(loaded.RemoveMember(owner.Id, membershipId).IsSuccess);
+            else
+                Assert.True(loaded.Leave(target.Id).IsSuccess);
+
+            context.ChangeTracker.DetectChanges();
+            var entry = Assert.Single(context.ChangeTracker.Entries<HouseholdMember>(),
+                candidate => candidate.State == EntityState.Deleted);
+            Assert.Same(member, entry.Entity);
+            Assert.Equal(household.Id, entry.Entity.HouseholdId);
+            Assert.Equal(target.Id, entry.Entity.PersonId);
+
+            await repository.UpdateAsync(loaded);
+            Assert.Equal(household.Id, member.HouseholdId);
+        }
+
+        await using var verification = CreateContext();
+        Assert.False(await verification.Set<HouseholdMember>()
+            .AnyAsync(member => member.MembershipId == membershipId));
+        Assert.False(await verification.Set<Person>().AnyAsync(person => person.Id == target.Id));
+        var remaining = await LoadHousehold(verification, household.Id);
+        Assert.Equal(household.Id, Assert.Single(remaining.Members).HouseholdId);
+        Assert.True(await verification.Set<Person>().AnyAsync(person => person.Id == owner.Id));
     }
 
     public async Task DisposeAsync()
@@ -298,7 +338,7 @@ public sealed class HouseholdPersistenceTests : IAsyncLifetime
         Assert.False(await verificationContext.Set<Household>()
             .AnyAsync(candidate => candidate.Id == householdId));
         Assert.False(await verificationContext.Set<HouseholdMember>()
-            .AnyAsync(member => EF.Property<Guid>(member, "HouseholdId") == householdId));
+            .AnyAsync(member => member.HouseholdId == householdId));
     }
 
     private static Task<Household> LoadHousehold(

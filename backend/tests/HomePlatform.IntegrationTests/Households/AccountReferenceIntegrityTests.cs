@@ -248,7 +248,8 @@ public sealed class AccountReferenceIntegrityTests : IAsyncLifetime
         Assert.Equal(CloseHouseholdOutcome.Success, closed.Outcome);
         db.ChangeTracker.Clear();
         Assert.Empty(await db.Set<Household>().ToListAsync());
-        Assert.Equal(3, await db.Set<Person>().CountAsync());
+        Assert.Equal(2, await db.Set<Person>().CountAsync());
+        Assert.False(await db.Set<Person>().AnyAsync(p => p.Id == loginless.Id));
         Assert.Equal(2, await db.Users.CountAsync());
     }
 

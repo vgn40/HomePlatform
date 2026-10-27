@@ -57,7 +57,7 @@ public sealed class CloseHouseholdPersistenceTests : IAsyncLifetime
         await using var verification = _factory.Services.CreateAsyncScope();
         var context = verification.ServiceProvider.GetRequiredService<HomePlatformDbContext>();
         Assert.False(await context.Set<Household>().AnyAsync(h => h.Id == household.Id));
-        Assert.False(await context.Set<HouseholdMember>().AnyAsync(m => EF.Property<Guid>(m, "HouseholdId") == household.Id));
+        Assert.False(await context.Set<HouseholdMember>().AnyAsync(m => m.HouseholdId == household.Id));
         Assert.False(await context.Set<HouseholdMember>().AnyAsync(m => membershipIds.Contains(m.MembershipId)));
         Assert.True(await context.Users.AnyAsync(u => u.Id == ownerId));
         Assert.True(await context.Users.AnyAsync(u => u.Id == memberId));

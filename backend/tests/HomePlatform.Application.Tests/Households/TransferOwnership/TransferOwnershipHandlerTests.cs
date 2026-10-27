@@ -15,7 +15,7 @@ public sealed class TransferOwnershipHandlerTests
         var targetId = Guid.NewGuid();
         Assert.True(household.AddMember(ownerId, HouseholdRole.Owner, targetId).IsSuccess);
         var target = household.Members.Single(m => m.PersonId == targetId);
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
         var repository = new RecordingHouseholdRepository(household, ownerId);
         var handler = CreateHandler(repository, ownerId);
 
@@ -24,7 +24,7 @@ public sealed class TransferOwnershipHandlerTests
         Assert.Equal(TransferOwnershipOutcome.Invalid, result.Outcome);
         Assert.Equal("New owner is already an owner of this household.", result.ErrorMessage);
         Assert.Equal(0, repository.UpdateCallCount);
-        AssertUnchanged(household, before);
+        before.AssertUnchanged(household);
     }
 
     private static readonly Guid LoginlessPersonId = Guid.NewGuid();
@@ -91,7 +91,7 @@ public sealed class TransferOwnershipHandlerTests
             repository,
             Guid.NewGuid());
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var result = await handler.Handle(
             new TransferOwnershipCommand(
@@ -102,7 +102,7 @@ public sealed class TransferOwnershipHandlerTests
             TransferOwnershipOutcome.NotFound,
             result.Outcome);
 
-        AssertUnchanged(household, before);
+        before.AssertUnchanged(household);
         Assert.Equal(0, repository.UpdateCallCount);
     }
 
@@ -135,7 +135,7 @@ public sealed class TransferOwnershipHandlerTests
             repository,
             callerPersonId);
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var result = await handler.Handle(
             new TransferOwnershipCommand(
@@ -146,7 +146,7 @@ public sealed class TransferOwnershipHandlerTests
             TransferOwnershipOutcome.Forbidden,
             result.Outcome);
 
-        AssertUnchanged(household, before);
+        before.AssertUnchanged(household);
         Assert.Equal(0, repository.UpdateCallCount);
     }
 
@@ -191,7 +191,7 @@ public sealed class TransferOwnershipHandlerTests
             repository,
             ownerPersonId);
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var result = await handler.Handle(
             new TransferOwnershipCommand(
@@ -202,7 +202,7 @@ public sealed class TransferOwnershipHandlerTests
             TransferOwnershipOutcome.Invalid,
             result.Outcome);
 
-        AssertUnchanged(household, before);
+        before.AssertUnchanged(household);
         Assert.Equal(0, repository.UpdateCallCount);
     }
 
@@ -232,11 +232,14 @@ public sealed class TransferOwnershipHandlerTests
             repository,
             ownerPersonId);
 
+        using var cancellation = new CancellationTokenSource();
+
         TransferOwnershipResult result =
             await handler.Handle(
                 new TransferOwnershipCommand(
                     household.Id,
-                    target.MembershipId));
+                    target.MembershipId),
+                cancellation.Token);
 
         Assert.Equal(
             TransferOwnershipOutcome.Success,
@@ -256,6 +259,8 @@ public sealed class TransferOwnershipHandlerTests
 
         Assert.Equal(1, repository.GetCallCount);
         Assert.Equal(1, repository.UpdateCallCount);
+        Assert.Equal(cancellation.Token, repository.GetCancellationToken);
+        Assert.Equal(cancellation.Token, repository.UpdateCancellationToken);
         Assert.Same(
             household,
             repository.UpdatedHousehold);
@@ -267,52 +272,6 @@ public sealed class TransferOwnershipHandlerTests
         Assert.Equal(
             HouseholdRole.Owner,
             repository.TargetRoleAtUpdate);
-    }
-
-    [Fact]
-    public async Task Handle_forwards_cancellation_token_to_read_and_update()
-    {
-        var ownerPersonId = Guid.NewGuid();
-
-        var household = new Household(
-            "Mit hjem",
-            ownerPersonId);
-
-        var target = AddMember(
-            household,
-            HouseholdRole.Member,
-            Guid.NewGuid());
-
-        var repository =
-            new RecordingHouseholdRepository(household);
-
-        var handler = CreateHandler(
-            repository,
-            ownerPersonId);
-
-        using var cancellationTokenSource =
-            new CancellationTokenSource();
-
-        var result = await handler.Handle(
-            new TransferOwnershipCommand(
-                household.Id,
-                target.MembershipId),
-            cancellationTokenSource.Token);
-
-        Assert.Equal(
-            TransferOwnershipOutcome.Success,
-            result.Outcome);
-
-        Assert.Equal(1, repository.GetCallCount);
-        Assert.Equal(1, repository.UpdateCallCount);
-
-        Assert.Equal(
-            cancellationTokenSource.Token,
-            repository.GetCancellationToken);
-
-        Assert.Equal(
-            cancellationTokenSource.Token,
-            repository.UpdateCancellationToken);
     }
 
     [Theory]
@@ -419,7 +378,7 @@ public sealed class TransferOwnershipHandlerTests
             repository,
             callerPersonId);
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var result = await handler.Handle(
             new TransferOwnershipCommand(
@@ -430,7 +389,7 @@ public sealed class TransferOwnershipHandlerTests
             TransferOwnershipOutcome.Forbidden,
             result.Outcome);
 
-        AssertUnchanged(household, before);
+        before.AssertUnchanged(household);
         Assert.Equal(1, repository.GetCallCount);
         Assert.Equal(0, repository.UpdateCallCount);
     }
@@ -461,7 +420,7 @@ public sealed class TransferOwnershipHandlerTests
             repository,
             callerPersonId);
 
-        var before = CaptureState(household);
+        var before = HouseholdSnapshot.Capture(household);
 
         var result = await handler.Handle(
             new TransferOwnershipCommand(
@@ -472,7 +431,7 @@ public sealed class TransferOwnershipHandlerTests
             TransferOwnershipOutcome.NotFound,
             result.Outcome);
 
-        AssertUnchanged(household, before);
+        before.AssertUnchanged(household);
         Assert.Equal(1, repository.GetCallCount);
         Assert.Equal(0, repository.UpdateCallCount);
     }
@@ -499,63 +458,6 @@ public sealed class TransferOwnershipHandlerTests
         return Assert.Single(
             household.Members,
             member => member.PersonId == personId);
-    }
-
-    private static (
-        Guid Id,
-        string Name,
-        DateTime CreatedAt,
-        DateTime UpdatedAt,
-        (
-            Guid MembershipId,
-            Guid PersonId,
-            HouseholdRole Role
-        )[] Members)
-        CaptureState(Household household)
-        => (
-            household.Id,
-            household.Name,
-            household.CreatedAt,
-            household.UpdatedAt,
-            household.Members
-                .OrderBy(
-                    member =>
-                        member.MembershipId)
-                .Select(
-                    member =>
-                        (
-                            member.MembershipId,
-                            member.PersonId,
-                            member.Role))
-                .ToArray());
-
-    private static void AssertUnchanged(
-        Household household,
-        (
-            Guid Id,
-            string Name,
-            DateTime CreatedAt,
-            DateTime UpdatedAt,
-            (
-                Guid MembershipId,
-                Guid PersonId,
-                HouseholdRole Role
-            )[] Members
-        ) before)
-    {
-        var after = CaptureState(household);
-
-        Assert.Equal(before.Id, after.Id);
-        Assert.Equal(before.Name, after.Name);
-        Assert.Equal(
-            before.CreatedAt,
-            after.CreatedAt);
-        Assert.Equal(
-            before.UpdatedAt,
-            after.UpdatedAt);
-        Assert.Equal(
-            before.Members,
-            after.Members);
     }
 
     private sealed class FakeAccountPersonLookup : IAccountPersonLookup

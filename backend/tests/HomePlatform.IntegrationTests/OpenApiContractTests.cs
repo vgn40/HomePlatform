@@ -115,6 +115,7 @@ public sealed class OpenApiContractTests
     [InlineData("/api/households/{householdId}/members/without-account", "post")]
     [InlineData("/api/households/{householdId}/ownership", "put")]
     [InlineData("/api/households/{householdId}/membership", "delete")]
+    [InlineData("/api/households/{householdId}/members/{membershipId}", "delete")]
     [InlineData("/api/households/{householdId}", "delete")]
     public async Task Household_writers_declare_409_problem_details(string path, string method)
     {
